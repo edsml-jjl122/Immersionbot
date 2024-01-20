@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from AnilistPython import Anilist
 import random
 from discord.utils import get
+from constants import ACHIEVEMENTS, PT_ACHIEVEMENTS, ACHIEVEMENT_RANKS, ACHIEVEMENT_EMOJIS, ACHIEVEMENT_IDS, EMOJI_TABLE
 
 class SqliteEnum(Enum):
     def __conform__(self, protocol):
@@ -35,20 +36,39 @@ class Span(Enum):
 import pytz
 
 def Span_to_datetime(Span, list):
+
+    def no_goal_case():
+        return (now.replace(tzinfo=pytz.UTC) + timedelta(days=9), now.replace(tzinfo=pytz.UTC) + timedelta(days=10))
+
+    now = datetime.now()
     if Span.value == "DAILY":
         # start of today, end of today
-        return (datetime.now().replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC), datetime.now().replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC) + timedelta(days=1))
-    if Span.value == "DAY":
+        return (now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC), now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC) + timedelta(days=1))
+    elif Span.value == "DAY":
         # start of today, end of today
-        return (datetime.now().replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC), datetime.now().replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC) + timedelta(days=1))
-    if Span.value == "DATE" or Span.value == "WEEKLY" or Span.value == "MONTHLY":
+        return (now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC), now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC) + timedelta(days=1))
+    elif Span.value == "DATE":
         # oldest date goal creation, latest date goal creation end date
         if len(list) >= 1:
-            return (datetime.strptime(list[0].created_at, "%Y-%m-%d %H:%M:%S.%f%z"), datetime.strptime(list[-1].created_at, "%Y-%m-%d %H:%M:%S.%f%z"))
+            return (datetime.strptime(list[0].created_at, "%Y-%m-%d %H:%M:%S.%f%z"), datetime.strptime(list[-1].end, "%Y-%m-%d %H:%M:%S.%f%z"))
         else:
-            #no goals case
-            return (datetime.now().replace(tzinfo=pytz.UTC) + timedelta(days=9), datetime.now().replace(tzinfo=pytz.UTC) + timedelta(days=10))
-
+            return no_goal_case()
+    #weekly, monthly will take the beginning day of each timeframe instead of the date when the command was used to set them
+    elif Span.value == "WEEKLY":
+        if len(list) >= 1:
+            start_of_week = now.replace(tzinfo=pytz.UTC) - timedelta(days=now.weekday())
+            end_of_week = start_of_week + timedelta(days=6)
+            return (start_of_week, end_of_week)
+        else:
+            return no_goal_case()
+    elif Span.value == "MONTHLY":
+        if len(list) >= 1:
+            start_of_month = now.replace(day=1, tzinfo=pytz.UTC)
+            next_month = now.replace(day=28, tzinfo=pytz.UTC) + timedelta(days=4)
+            end = next_month - timedelta(days=next_month.day)
+            return (start_of_month, end)
+        else:
+            return no_goal_case()
 
 def get_time_relevant_logs(goals, relevant_logs):
     #refractor later, there gotta be a better way to do this
@@ -58,6 +78,18 @@ def get_time_relevant_logs(goals, relevant_logs):
         dicts[span]['logs'] = [log for log in relevant_logs if Span_to_datetime(span, dicts[span]['goals'])[0] <= pytz.utc.localize(log.created_at) and pytz.utc.localize(log.created_at) <= Span_to_datetime(span, dicts[span]['goals'])[1]]
 
     return dicts
+
+def span_to_text(span, end_date):
+    #match doesn't work on 3.8.10
+    if span == 'DAILY' or span == 'DAY':
+        return 'end of Day'
+    if span == 'DATE':
+        # e.x 28th Jan 2024
+        return datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S.%f%z").strftime("{0} %b %Y").format(ordinal(datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S.%f%z").day))
+    if span == 'WEEKLY':
+        return 'end of Week'
+    if span == 'MONTHLY':
+        return 'end of Month'
 
 def goal_algo(dict, log_bool, store, interaction, media_type):
     goals_description = []
@@ -76,16 +108,16 @@ def goal_algo(dict, log_bool, store, interaction, media_type):
                 elif goals_row.media_type.value == "ANYTHING":
                     points.append(_to_amount(log.media_type.value, log.amount))
             points = sum(points)
+            until_text = span_to_text(goals_row.span, goals_row.end)
             if points >= goals_row.amount:
-                goals_description.append(f"""- ~~{round(points, 2)}/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} (untill {(datetime.strptime(goals_row.end, "%Y-%m-%d %H:%M:%S.%f%z")).strftime("{0} %b %Y").format(ordinal(datetime.strptime(goals_row.end, "%Y-%m-%d %H:%M:%S.%f%z").day))})~~""")
-                if log_bool: 
-                    if not store.goal_already_completed_before(interaction.user.id, goals_row.span, goals_row.media_type, goals_row.text):
+                goals_description.append(f"""- ~~{round(points, 2)}/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} (untill {until_text})~~""")
+                if log_bool and not store.goal_already_completed_before(interaction.user.id, goals_row.span, goals_row.media_type, goals_row.text):
                         goal_message.append((interaction.user.mention, media_type_grammer(media_type.upper()), goals_row.amount, media_type_format(media_type.upper()), goals_row.text, random_emoji()))
                         store.goal_completed(interaction.user.id, goals_row.span, goals_row.amount, goals_row.media_type, goals_row.text)
             else:
-                goals_description.append(f"""- {round(points, 2)}/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} (untill {(datetime.strptime(goals_row.end, "%Y-%m-%d %H:%M:%S.%f%z")).strftime("{0} %b %Y").format(ordinal(datetime.strptime(goals_row.end, "%Y-%m-%d %H:%M:%S.%f%z").day))})""")
+                goals_description.append(f"""- {round(points, 2)}/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} (untill {until_text})""")
         else:
-            goals_description.append(f"""- 0/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} (untill {(datetime.strptime(goals_row.end, "%Y-%m-%d %H:%M:%S.%f%z")).strftime("{0} %b %Y").format(ordinal(datetime.strptime(goals_row.end, "%Y-%m-%d %H:%M:%S.%f%z").day))})""")
+            goals_description.append(f"""- 0/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} (untill {until_text})""")
 
     return goals_description, goal_message
 
@@ -103,6 +135,7 @@ def get_goal_description(dicts, log_bool, store, interaction, media_type):
     return goals_description, goal_message
 
 def amount_time_conversion(media_type, amount):
+    #converts raw string to (int) time e.x "2:30" to (min) 150
     if media_type == "Listening" or media_type == "Readtime":
         if ":" in amount:
             hours, min = amount.split(":")
@@ -114,7 +147,9 @@ def amount_time_conversion(media_type, amount):
 
     return amount
             
-
+#calculates current achievemnt rank and next achievement rank
+#returns milestone, emoji, name of current achievement rank
+#and of next achievement rank for final log text message
 def check_achievements(discord_user_id, media_type, store_prod):
     logs = store_prod.get_logs_by_user(discord_user_id, media_type, None, None)
     weighed_points_mediums = multiplied_points(logs)
@@ -142,7 +177,9 @@ def _to_amount(media_type, amount):
         return amount / 350.0
     else:
         raise Exception(f'Unknown media type: {media_type}')
-    
+
+#returns dict with total amount of points for each media_type
+#points are weighted via MULTIPLIERS
 def multiplied_points(logs):
     dictes = defaultdict(list)
     for row in logs:
@@ -206,22 +243,6 @@ def pairwise(iterable):
     next(b, None)
     return zip(a, b)
 
-ACHIEVEMENTS = {
-    "VN": [1, 50_000, 100_000, 500_000, 1_000_000, 2_000_000, 4_000_000, 10_000_000, float('inf')],
-    "ANIME": [1, 12, 25, 100, 200, 500, 800, 1500, float('inf')],
-    "READING": [1, 50_000, 100_000, 500_000, 1_000_000, 2_000_000, 4_000_000, 10_000_000, float('inf')],
-    "BOOK": [1, 100, 250, 1000, 2500, 5000, 10_000, 20_000, float('inf')],
-    "MANGA": [1, 250, 1250, 5000, 10_000, 25_000, 50_000, 100_000, float('inf')],
-    "LISTENING": [1, 250, 500, 2000, 5000, 10_000, 25_000, 50_000, float('inf')],
-    "READTIME": [1, 250, 500, 2000, 5000, 10_000, 25_000, 50_000, float('inf')],
-}
-
-PT_ACHIEVEMENTS = [1, 100, 300, 1000, 2000, 10_000, 25_000, 100_000, float('inf')]
-
-ACHIEVEMENT_RANKS = ['Beginner', 'Initiate', 'Apprentice', 'Hobbyist', 'Enthusiast', 'Aficionado', 'Sage', 'Master']
-ACHIEVEMENT_EMOJIS = [':new_moon:', ':new_moon_with_face:', ':waning_crescent_moon:', ':last_quarter_moon:', ':waning_gibbous_moon:', ':full_moon:', ':full_moon_with_face:', ':sun_with_face:']
-ACHIEVEMENT_IDS = [1120790734476423270, 1120790825702527037, 1120790890038952066, 1120790964970213436, 1120791040463470702, 1120791104518901912, 1120791193366823112, 1120791256818266112]
-
 def calc_achievements(amount_by_media_type):
     abmt = amount_by_media_type
     # Combine Book and Reading
@@ -230,9 +251,11 @@ def calc_achievements(amount_by_media_type):
         abmt.pop(MediaType.READING, None)
     return abmt
 
+#magic idk didnt write it myself lol ¯\_(ツ)_/¯
 def get_achievemnt_index(abmt):
     for media_type, amount in abmt.items():
         index = get_index_by_ranges(amount[1], ACHIEVEMENTS[media_type])
+        #fix inline logic
         return ACHIEVEMENTS[media_type][index], amount[1], ACHIEVEMENTS[media_type][index+1] if index != 7 else ACHIEVEMENTS[media_type][index], ACHIEVEMENT_EMOJIS[index], ACHIEVEMENT_RANKS[index], ACHIEVEMENT_EMOJIS[index+1]  if index != 7 else ACHIEVEMENT_EMOJIS[index], ACHIEVEMENT_RANKS[index+1] if index != 7 else ACHIEVEMENT_RANKS[index], ACHIEVEMENT_IDS[index]
 
 def get_index_by_ranges(amount, ranges):
@@ -272,6 +295,9 @@ def ordinal(number):
         suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(number % 10, 'th')
     return str(number) + suffix
 
+#bits and parts for final log message like point unit (chars, pgs, etc)
+#points conversion (1/350 points/characters → x points)
+#name of the log immersion via anilist or vndb
 def point_message_converter(media_type, amount, name):
     if media_type == "VN":
         amount = amount / 350
@@ -370,36 +396,6 @@ def make_ordinal(n):
         suffix = 'th'
     return f'{n}{suffix}'
 
-EMOJI_TABLE = {
-    # 'Yay': 658999234787278848,
-    # 'NanaYes': 837211260155854849,
-    # 'NanaYay': 837211306293067797,
-    "990": 921933172432863283,
-    "CatBlush": 933089264030339083,
-    "CatTup": 948511239401799681,
-    "ChikaTup": 918620369919828000,
-    "ChubbyGero": 831348462305673286,
-    "ChubbyGeroSwag": 929124878047641690,
-    "CoolCat": 783741575582580758,
-    "InuPero": 963127794194350110,
-    "NadeshikoUma": 921677406849363989,
-    "NanaJam": 882894763987177493,
-    "NanaYay": 837211306293067797,
-    "NanaYes": 877679734547427349,
-    "NekoGero": 936524524231458897,
-    "Peek": 918616198302793739,
-    "ShimarinDango": 921677567084359702,
-    "SugoiAA": 678245454068056097,
-    "TachiSmile": 688824520362164303,
-    "TohruFlex": 926637533994037328,
-    "Yay": 658999234787278848,
-    "Yousoroo": 698293340881289221,
-    "Yousoroo2": 709339172602904586,
-    "YuiPeace": 918623813552447529,
-    "ajatt": 783749154807087134,
-    "anki": 688802971089371185,
-}
-
 def emoji(s):
     return f'<:{s}:{EMOJI_TABLE[s]}>'
 
@@ -422,10 +418,8 @@ def indices_text(lst, goals_row, interaction):
     else:
         return [i for i, x in enumerate(lst) if (x.note.strip('][').split(', '))[0].replace("'", "") == goals_row.text] #and goals_row.created_at < x.created_at < goals_row.freq]
     
-
-    
-def get_roles(guild):
-    roles = [f for k in ACHIEVEMENT_RANKS if (f := get(guild.roles, name=k))]
-    if len(roles) != len(ACHIEVEMENT_RANKS):
-        return {}
-    return dict(zip(ACHIEVEMENT_RANKS, roles))
+# def get_roles(guild):
+#     roles = [f for k in ACHIEVEMENT_RANKS if (f := get(guild.roles, name=k))]
+#     if len(roles) != len(ACHIEVEMENT_RANKS):
+#         return {}
+#     return dict(zip(ACHIEVEMENT_RANKS, roles))

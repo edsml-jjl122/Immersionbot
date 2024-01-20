@@ -18,6 +18,11 @@ class BotManager(commands.Cog):
     @app_commands.command(name="uptime", description="How long the bot is working.")
     @app_commands.checks.has_role("QA Tester")
     async def uptime(self, interaction: discord.Interaction):
+
+        channel = interaction.channel
+        if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
+            return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
+
         current_time = time.time()
         difference = int(round(current_time - start_time))
         text = str(datetime.timedelta(seconds=difference))
@@ -26,6 +31,10 @@ class BotManager(commands.Cog):
     @app_commands.command(name="reload_cog", description="Reloads cogs.")
     @app_commands.checks.has_role("Moderator")
     async def reload_cog(self, interaction: discord.Interaction):
+        channel = interaction.channel
+        if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
+            return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
+
         my_view = CogSelectView(timeout=1800)
         for cog_name in [extension for extension in self.bot.extensions]:
             cog_button = ReloadButtons(self.bot, label=cog_name)
@@ -81,6 +90,10 @@ class BotManager(commands.Cog):
 
     @app_commands.command(name='help', description='Explains commands.')
     async def help(self, interaction: discord.Interaction):
+        channel = interaction.channel
+        if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
+            return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
+            
         my_view = MyView(timeout=1800)
         for cog_name in [extension for extension in self.bot.extensions] + ["immersionbotcogs.BOT"]:
             if cog_name == "immersionbotcogs.cogs_manager":

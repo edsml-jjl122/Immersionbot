@@ -41,12 +41,15 @@ class Log(commands.Cog):
     @app_commands.checks.has_role("QA Tester")
     async def log(self, interaction: discord.Interaction, media_type: str, amount: str, name: Optional[str], comment: Optional[str]):
         
+        #only allowed to log in #bot-debug, #immersion-logs, DMs
+        #DMs not working
         channel = interaction.channel
         if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
             return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
         
         amount = helpers.amount_time_conversion(media_type, amount)
 
+        #introducing upperbound for amount to log for each media_type
         if not amount > 0:
             return await interaction.response.send_message(ephemeral=True, content='Only positive numbers allowed.')
 
@@ -74,6 +77,7 @@ class Log(commands.Cog):
         if amount in [float('inf'), float('-inf')]:
             return await interaction.response.send_message(ephemeral=True, content='No infinities allowed.')
 
+        #max comment/name length
         if name != None:
             if len(name) > 150:
                 return await interaction.response.send_message(ephemeral=True, content='Only name/comments under 150 characters allowed.')

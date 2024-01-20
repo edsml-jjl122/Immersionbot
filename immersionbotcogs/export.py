@@ -40,7 +40,7 @@ class Export(commands.Cog):
     @app_commands.choices(timeframe = [Choice(name="Monthly", value="Monthly"), Choice(name="All Time", value="All Time"), Choice(name="Weekly", value="Weekly"), Choice(name="Yearly", value="Yearly")])
     @app_commands.choices(media_type = [Choice(name="Visual Novels", value="VN"), Choice(name="Manga", value="MANGA"), Choice(name="Anime", value="ANIME"), Choice(name="Book", value="BOOK"), Choice(name="Readtime", value="READTIME"), Choice(name="Listening", value="LISTENING"), Choice(name="Reading", value="READING")])
     @app_commands.describe(date='''[year-month-day] Example: '2022-12-29'.''')
-    @app_commands.checks.has_role("QA Tester")
+    @app_commands.checks.has_role("Moderator")
     async def export(self, interaction: discord.Interaction, timeframe: str, media_type: Optional[str], date: Optional[str]):
 
         channel = interaction.channel

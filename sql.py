@@ -34,6 +34,12 @@ class Store:
             db_name, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
         self.conn.row_factory = namedtuple_factory
     
+    def fetch(self, query):
+        print(query)
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchall()
+
     def new_log(
         self, discord_guild_id, discord_user_id, media_type, amount, note, created_at
     ):
@@ -45,13 +51,10 @@ class Store:
         with self.conn:
             query = f"""
             SELECT SUM(amount) as sum_amount FROM logs
-            WHERE discord_guild_id=? AND discord_user_id=? AND created_at BETWEEN '{created_at[0]}' AND '{created_at[1]}'
+            WHERE discord_guild_id={discord_user_id} AND created_at BETWEEN '{created_at[0]}' AND '{created_at[1]}'
             """
-            
-            data = (discord_guild_id, discord_user_id)
-            cursor = self.conn.cursor()
-            cursor.execute(query, data)
-            return cursor.fetchall()
+        
+            return self.fetch(query)
         
     def get_leaderboard(self, discord_user_id, timeframe, media_type):
         with self.conn:
@@ -90,17 +93,15 @@ class Store:
                 WHERE (
                 rank <= 20
                 ) OR (
-                rank >= (SELECT rank FROM leaderboard WHERE discord_user_id = ?) - 1
+                rank >= (SELECT rank FROM leaderboard WHERE discord_user_id = {discord_user_id}) - 1
                 AND
-                rank <= (SELECT rank FROM leaderboard WHERE discord_user_id = ?) + 1
+                rank <= (SELECT rank FROM leaderboard WHERE discord_user_id = {discord_user_id}) + 1
                 );
             """
-            data = (discord_user_id, discord_user_id)
-            cursor = self.conn.cursor()
-            cursor.execute(query, data)
-            return cursor.fetchall()
+            return self.fetch(query)
     
     def get_logs_by_user(self, discord_user_id, media_type, timeframe, name):
+        #refractor later
         if media_type == None and timeframe == None and name == None:
             where_clause = f"discord_user_id={discord_user_id}"
         if media_type and media_type != None and timeframe  and name == None:
@@ -125,18 +126,14 @@ class Store:
         ORDER BY created_at DESC;
         """
 
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
     
     def get_that_log(self, discord_user_id):
         where_clause = f'''discord_user_id={discord_user_id}'''
         query = f"""SELECT * FROM logs WHERE {where_clause} ORDER BY created_at DESC"""
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()[0]
+        
+        return self.fetch(query)[0]
         
     def delete_log(self, discord_user_id, media_type, amount, text):
         where_clause = f"""
@@ -144,7 +141,7 @@ class Store:
         """
         query = f"""
         DELETE FROM logs WHERE {where_clause}"""
-        print(query)
+        
         cursor = self.conn.cursor()
         cursor.execute(query)
         self.conn.commit()
@@ -157,10 +154,8 @@ class Store:
         GROUP BY media_type, note
         ORDER BY created_at DESC
         """
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
     
     # def get_recent_goal_alike_logs(self, discord_user_id):
     #     where_clause = f"discord_user_id={discord_user_id}"""
@@ -170,7 +165,7 @@ class Store:
     #     GROUP BY media_type, note
     #     ORDER BY created_at DESC
     #     """
-    #     print(query)
+    #     
     #     cursor = self.conn.cursor()
     #     cursor.execute(query)
     #     return cursor.fetchall()
@@ -183,7 +178,7 @@ class Store:
         # WHERE {where_clause}
         # ORDER BY created_at DESC
         # """
-        # print(query)
+        # 
         # cursor = self.conn.cursor()
         # cursor.execute(query)
         # return cursor.fetchall()
@@ -194,7 +189,7 @@ class Store:
         # WHERE {where_clause}
         # GROUP BY media_type
         # """
-        # print(query)
+        # 
         # cursor = self.conn.cursor()
         # cursor.execute(query)
         # return cursor.fetchall()
@@ -208,11 +203,8 @@ class Store:
         FROM logs WHERE discord_user_id={discord_user_id}
         ORDER BY created_at) as points) as points
         """
-
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
 
     def get_longest_streak(self, discord_user_id):
         query = f"""SELECT discord_user_id, max(created_at) as ends_at, count(*) as streak
@@ -223,11 +215,8 @@ class Store:
         ORDER BY created_at) as points) as points
         ORDER BY streak DESC
         """
-
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
         # query = f"""
         # with cte as (
         # select discord_user_id, date(created_at) as created_at
@@ -316,7 +305,13 @@ class Set_Goal:
             self.conn = sqlite3.connect(
                 db_name, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
             self.conn.row_factory = namedtuple_factory
-    
+
+    def fetch(self, query):
+        print(query)
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchall()
+
     def new_goal(self, discord_user_id, goal_type, media_type, amount, text, span, created_at, end):
         with self.conn:
             query = """
@@ -333,10 +328,8 @@ class Set_Goal:
         WHERE {where_clause}
         ORDER BY created_at ASC;
         """
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
             
     def new_point_goal(self, discord_user_id, goal_type, media_type, amount, text, span, created_at, end):
         with self.conn:
@@ -354,10 +347,8 @@ class Set_Goal:
         WHERE {where_clause}
         ORDER BY created_at DESC;
         """
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
     
     def get_goal_by_medium(self, discord_user_id, timeframe, media_type):
         where_clause = f"discord_user_id={discord_user_id} AND media_type='{media_type.upper()}' AND created_at BETWEEN '{timeframe[0]}' AND '{timeframe[1]}'"
@@ -365,10 +356,8 @@ class Set_Goal:
         SELECT SUM(amount) as da FROM goals
         WHERE {where_clause};
         """
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
             
     def get_daily_goals(self, discord_user_id):
         where_clause = f"discord_user_id={discord_user_id} and freq='Daily'"
@@ -378,10 +367,8 @@ class Set_Goal:
         WHERE {where_clause}
         ORDER BY created_at DESC;
         """
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
     
     def get_date_goals(self, discord_user_id):
         #where_clause = f"""discord_user_id={discord_user_id} AND freq IS NOT "Daily" AND freq IS NOT NULL"""
@@ -392,10 +379,8 @@ class Set_Goal:
         WHERE {where_clause}
         ORDER BY created_at DESC;
         """
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()[0]
+        
+        return self.fetch(query)[0]
     
     def check_goal_exists(self, discord_user_id, goal_type, span, media_type, amount, text):
         print(discord_user_id, goal_type, span, media_type, text)
@@ -430,26 +415,22 @@ class Set_Goal:
         SELECT * FROM goals
         ORDER BY created_at DESC;
         """
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
     
     def get_all_completed(self):
         query = f"""
         SELECT * FROM goals
         ORDER BY created_at DESC;
         """
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
     
     def delete_goal(self, discord_user_id, media_type, amount, span):
         where_clause = f"""discord_user_id={discord_user_id} AND media_type='{str(media_type).upper()}' AND amount={amount} AND span='{span}'"""
         query = f"""
         DELETE FROM goals WHERE {where_clause}"""
-        print(query)
+        
         cursor = self.conn.cursor()
         cursor.execute(query)
         self.conn.commit()
@@ -460,16 +441,14 @@ class Set_Goal:
         SELECT * FROM goals
         WHERE {where_clause}
         """
-        print(query)
-        cursor = self.conn.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        
+        return self.fetch(query)
     
     def delete_completed(self, discord_user_id, goal_type, amount, media_type, text):
         where_clause = f"""discord_user_id={discord_user_id} AND media_type='{str(media_type).upper()}' AND amount={amount} AND text='{text}' AND goal_type='{goal_type}'"""
         query = f"""
         DELETE FROM completed WHERE {where_clause}"""
-        print(query)
+        
         cursor = self.conn.cursor()
         cursor.execute(query)
         self.conn.commit()

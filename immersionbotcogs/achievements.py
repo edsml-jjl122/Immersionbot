@@ -40,6 +40,10 @@ class Achievements(commands.Cog):
     @app_commands.checks.has_role("QA Tester")
     async def achievements(self, interaction: discord.Interaction):
         
+        channel = interaction.channel
+        if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
+            return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
+
         await interaction.response.defer()
         
         store = Store("prod.db")
