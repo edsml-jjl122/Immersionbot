@@ -18,27 +18,7 @@ from sql import Store
 import os
 
 import helpers
-# from dotenv import load_dotenv
-
-#############################################################
-
-# load_dotenv()
-
-_DB_NAME = 'prod.db'
-    
-MULTIPLIERS = {
-    'BOOK': 1,
-    'MANGA': 0.2,
-    'VN': 1 / 350,
-    'ANIME': 9.5,
-    'READING': 1 / 350,
-    'LISTENING': 0.45,
-    'READTIME': 0.45
-}
-
-TIMEFRAMES = ["WEEK, MONTH, YEAR, All"]
-
-#############################################################
+from constants import MULTIPLIERS, _DB_NAME, TIMEFRAMES
 
 class SqliteEnum(Enum):
     def __conform__(self, protocol):

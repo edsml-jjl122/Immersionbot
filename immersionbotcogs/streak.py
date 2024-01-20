@@ -19,10 +19,10 @@ from discord.utils import get
 import seaborn as sns
 import pandas as pd
 import numpy as np
-
+from constants import _DB_NAME
 #############################################################
 
-log = logging.getLogger(__name__)
+
 #############################################################
 
 
@@ -39,8 +39,20 @@ class Streak(commands.Cog):
         df = pd.DataFrame(np.random.random((5,5)), columns=["a","b","c","d","e"])
         p1 = sns.heatmap(df)
 
-    # async def create_embed(self):
-    #     heatmap = await create_heatmap()
+    async def create_embed(self, interaction, weighed_points_mediums, logs, user, store):
+        embed = discord.Embed(title=f'Streak Immersion Overview')
+        embed.add_field(name='**User**', value=user.display_name)
+        embed.add_field(name='**Longest streak:**', value=f'''{store.get_longest_streak(user.id)[0].streak} days''')
+        embed.add_field(name='**Current streak:**', value=f'''{store.get_log_streak(user.id)[-1].streak} days''')
+        amounts_by_media_desc = '\n'.join(f'{key}: {helpers.millify(weighed_points_mediums[key][1])} {helpers.media_type_format(key)} → {helpers.millify(weighed_points_mediums[key][0])} pts' for key in weighed_points_mediums)
+        embed.add_field(name='**Breakdown**', value=amounts_by_media_desc or 'None', inline=False)
+        
+        await self.create_heatmap(interaction, weighed_points_mediums, logs)
+        file = discord.File(fr'''{[file for file in os.listdir() if file.endswith('_overview_chart.png')][0]}''')
+        embed.set_image(url=f"attachment://{interaction.user.id}_overview_chart.png")
+        
+        return embed, file
+        heatmap = await create_heatmap()
     
 
     @app_commands.command(name='streak', description=f'View your log streak')
@@ -51,8 +63,13 @@ class Streak(commands.Cog):
         if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
             return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
         
-        # myembed = await create_embed()
-
+        store = Store(_DB_NAME)
+        logs = store.get_logs_by_user(user.id, media_type, (beginn, end), name)
+        if logs == []:
+            return await interaction.edit_original_response(content='No logs were found.')
+        
+        weighed_points_mediums = helpers.multiplied_points(logs)
+        embed, file = await self.create_embed(interaction, weighed_points_mediums, logs, user, store)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Streak(bot))

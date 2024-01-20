@@ -49,26 +49,22 @@ def Span_to_datetime(Span, list):
         return (now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC), now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC) + timedelta(days=1))
     elif Span.value == "DATE":
         # oldest date goal creation, latest date goal creation end date
-        if len(list) >= 1:
+        if list:
             return (datetime.strptime(list[0].created_at, "%Y-%m-%d %H:%M:%S.%f%z"), datetime.strptime(list[-1].end, "%Y-%m-%d %H:%M:%S.%f%z"))
-        else:
-            return no_goal_case()
     #weekly, monthly will take the beginning day of each timeframe instead of the date when the command was used to set them
     elif Span.value == "WEEKLY":
-        if len(list) >= 1:
+        if list:
             start_of_week = now.replace(tzinfo=pytz.UTC) - timedelta(days=now.weekday())
             end_of_week = start_of_week + timedelta(days=6)
             return (start_of_week, end_of_week)
-        else:
-            return no_goal_case()
     elif Span.value == "MONTHLY":
-        if len(list) >= 1:
+        if list:
             start_of_month = now.replace(day=1, tzinfo=pytz.UTC)
             next_month = now.replace(day=28, tzinfo=pytz.UTC) + timedelta(days=4)
             end = next_month - timedelta(days=next_month.day)
             return (start_of_month, end)
-        else:
-            return no_goal_case()
+        
+    return no_goal_case()
 
 def get_time_relevant_logs(goals, relevant_logs):
     #refractor later, there gotta be a better way to do this
@@ -130,18 +126,15 @@ def get_goal_description(dicts, log_bool, store, interaction, media_type):
         goals_description += description
         goal_message  += message
 
-    goals_description  = '\n'.join(goals_description)   
+    goals_description  = '\n'.join(goals_description)
 
     return goals_description, goal_message
 
 def amount_time_conversion(media_type, amount):
     #converts raw string to (int) time e.x "2:30" to (min) 150
-    if media_type == "Listening" or media_type == "Readtime":
-        if ":" in amount:
-            hours, min = amount.split(":")
-            amount = (int(hours) * 60) + (int(min))
-        else:
-            amount = int(amount)
+    if (media_type == "Listening" or media_type == "Readtime") and ":" in amount:
+        hours, min = amount.split(":")
+        amount = (int(hours) * 60) + (int(min))
     else:
         amount = int(amount)
 
@@ -220,7 +213,7 @@ def media_type_grammer(media_type):
     elif media_type == "READING":
         return "reading"
     elif media_type == "READTIME":
-        return "listening"
+        return "reading"
     else:
         raise Exception(f'Unknown media type: {media_type}')
     
@@ -298,65 +291,51 @@ def ordinal(number):
 #bits and parts for final log message like point unit (chars, pgs, etc)
 #points conversion (1/350 points/characters → x points)
 #name of the log immersion via anilist or vndb
-def point_message_converter(media_type, amount, name):
-    if media_type == "VN":
-        amount = amount / 350
-        if name and name.startswith("v"):
-            vndb = VNDB()
-            vns = vndb.get_vn(VN.id == name[1:])
-            vn = vns[0]
-            return amount, "chars", f"1/350 points/characters → +{round(amount, 2)} points", ("of " + "[" + vn.title + "]" + "(" + f"<https://vndb.org/{name}>" + ")" if name else "")
-        if name:
-            return amount, "chars", f"1/350 points/characters → +{round(amount, 2)} points", f'of {name}'
-        return amount, "chars", f"1/350 points/characters → +{round(amount, 2)} points", f"of {media_type}"
-    
-    if media_type == "MANGA":
-        amount = amount * 0.2
-        if name and name.isdigit():
-            anilist = Anilist()
+def get_name_of_immersion(media_type, name):
+    if name and name.startswith("v"):
+        vndb = VNDB()
+        vns = vndb.get_vn(VN.id == name[1:])
+        vn = vns[0]
+        return ("of " + "[" + vn.title + "]" + "(" + f"<https://vndb.org/{name}>" + ")")
+    elif name and name.isdigit():
+        anilist = Anilist()
+        if media_type == "MANGA":
             updated_title = anilist.get_manga_with_id(name)["name_english"].replace(" ", "-")
-            return amount, "pgs", f"0.2 points per page → +{round(amount, 2)} points", ("of " + "[" + anilist.get_manga_with_id(name)["name_english"] + "]" + "(" + f"<https://anilist.co/manga/{name}/{updated_title}/>" + ")" if name else "")
-        if name:
-            return amount, "pgs", f"0.2 points per page → +{round(amount, 2)} points", f'of {name}'
-        return amount, "pgs", f"0.2 points per page → +{round(amount, 2)} points", f"of {media_type}" 
-    
-    if media_type == "BOOK":
-        if name:
-            return amount, "pgs", f"1 point per page → +{round(amount, 2)} points", ("of " + name if name else "")
-        return amount, "pgs", f"1 point per page → +{round(amount, 2)} points", f"of {media_type}" 
-    
-    if media_type == "ANIME":
-        amount = amount * 9.5
-        if name and name.isdigit():
-            anilist = Anilist()
+        #depending on the anime name_english might not work but it looks cleaner with so im including it
+        elif media_type == "ANIME":
             try:
                 updated_title = anilist.get_anime_with_id(name)["name_english"].replace(" ", "-")
             except  Exception:
                 updated_title = anilist.get_anime_with_id(name)["name_romaji"].replace(" ", "-")
-                return amount, "eps", f"9.5 points per eps → +{round(amount, 2)} points", ("of " + "[" + anilist.get_anime_with_id(name)["name_romaji"] + "]" + "(" + f"<https://anilist.co/anime/{name}/{updated_title}/>" + ")" if name else "")
             else:
-                return amount, "eps", f"9.5 points per eps → +{round(amount, 2)} points", ("of " + "[" + anilist.get_anime_with_id(name)["name_english"] + "]" + "(" + f"<https://anilist.co/anime/{name}/{updated_title}/>" + ")" if name else "")
-        if name:
-            return amount, "eps", f"9.5 points per eps → +{round(amount, 2)} points", f'of {name}'
-        return amount, "eps", f"9.5 points per eps → +{round(amount, 2)} points", f"of {media_type}"
+                return "of " + "[" + anilist.get_anime_with_id(name)["name_english"] + "]" + "(" + f"<https://anilist.co/anime/{name}/{updated_title}/>" + ")"
+        return "of " + "[" + anilist.get_manga_with_id(name)["name_english"] + "]" + "(" + f"<https://anilist.co/manga/{name}/{updated_title}/>" + ")"
+    elif name:
+        return f"of {name}"
     
-    if media_type == "READING":
-        amount = amount / 350
-        if name:
-            return amount, "chars", f"1/135 points/character of reading → +{round(amount, 2)} points", f'of {name}'
-        return amount, "chars", f"1/135 points/character of reading → +{round(amount, 2)} points", f"of {media_type}" 
+    return f"of {media_type}"
+
+def point_message_converter(media_type, amount, name):
+    if media_type == "VN":
+        return _to_amount(media_type, amount), "chars", f"1/350 points/characters → +{round(amount, 2)} points", get_name_of_immersion(media_type, name)
+
+    elif media_type == "MANGA":
+        return _to_amount(media_type, amount), "pgs", f"0.2 points per page → +{round(amount, 2)} points", get_name_of_immersion(media_type, name)
     
-    if media_type == "READTIME":
-        amount = amount * 0.45
-        if name:
-            return amount, "mins", f"0.45 points/min of readtime → +{round(amount, 2)} points", f'of {name}'
-        return amount, "mins", f"0.45 points/min of readtime → +{round(amount, 2)} points", f"of {media_type}" 
+    elif media_type == "BOOK":
+        return _to_amount(media_type, amount), "pgs", f"1 point per page → +{round(amount, 2)} points", get_name_of_immersion(media_type, name)
+    
+    elif media_type == "ANIME":
+        return _to_amount(media_type, amount), "eps", f"9.5 points per eps → +{round(amount, 2)} points", get_name_of_immersion(media_type, name)
+    
+    elif media_type == "READING":
+        return _to_amount(media_type, amount), "chars", f"1/135 points/character of reading → +{round(amount, 2)} points", get_name_of_immersion(media_type, name)
+    
+    elif media_type == "READTIME":
+        return _to_amount(media_type, amount), "mins", f"0.45 points/min of readtime → +{round(amount, 2)} points", get_name_of_immersion(media_type, name)
     
     if media_type == "LISTENING":
-        amount = amount * 0.45
-        if name:
-            return amount, "mins", f"0.45 points/min of listening → +{round(amount, 2)} points", f'of {name}'
-        return amount, "mins", f"0.45 points/min of listening → +{round(amount, 2)} points", f"of {media_type}" 
+        return _to_amount(media_type, amount), "mins", f"0.45 points/min of listening → +{round(amount, 2)} points", get_name_of_immersion(media_type, name)
     
 def start_end_tf(now, timeframe):
     if timeframe == "Weekly":

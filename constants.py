@@ -43,3 +43,18 @@ EMOJI_TABLE = {
     "ajatt": 783749154807087134,
     "anki": 688802971089371185,
 }
+
+MULTIPLIERS = {
+    'BOOK': 1,
+    'MANGA': 0.2,
+    'VN': 1 / 350,
+    'ANIME': 9.5,
+    'READING': 1 / 350,
+    'LISTENING': 0.45,
+    'READTIME': 0.45
+}
+
+_DB_NAME = 'prod.db'
+
+TIMEFRAMES = ["WEEK, MONTH, YEAR, All"]
+
