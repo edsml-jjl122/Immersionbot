@@ -129,22 +129,6 @@ class Log(commands.Cog):
 **Next Achievement:** """ + media_type.upper() + " " + new_next_rank_name + " " + new_next_rank_emoji + " " + str(int(new_rank_achievement)) + " " + helpers.media_type_format(media_type.upper())}\n\n{">>> " + comment if comment else ""}''')
         if goal_message != []:
             await interaction.channel.send(content=f'{goal_message[0][0]} congrats on finishing your goal of {goal_message[0][1]} {goal_message[0][2]} {goal_message[0][3]} {goal_message[0][4]}, keep the spirit!!! {goal_message[0][5]}')
-
-        # if old_next_achievement != new_rank_achievement:
-        #     role = interaction.guild.get_role(id)
-        #     await interaction.user.add_roles(role)
-    
-    # @commands.Cog.listener()
-    # async def on_member_update(self, before, after):
-    #     log_roles = [before.guild.get_role(id) for id in helpers.ACHIEVEMENT_IDS]
-    #     i = [i for i, x in enumerate(after.roles) for log_role in log_roles if x == log_role]
-    #     if len(i) > 1:
-    #         p = []
-    #         for c, role in enumerate(after.roles):
-    #             for c_log, c_role in enumerate(log_roles):
-    #                 if role == c_role:
-    #                     p.append(c_log)
-    #         await after.remove_roles(log_roles[min(p)])
             
     @log.autocomplete('name')
     async def log_autocomplete(self, interaction: discord.Interaction, current: str,) -> List[app_commands.Choice[str]]:
@@ -167,9 +151,9 @@ class Log(commands.Cog):
                         total
                         perPage
                     }}
-                    media (search: $title, type: {media_type.upper()}) {{
                         id
                         title {{
+                    media (search: $title, type: {media_type.upper()}) {{
                             romaji
                             native
                         }}
