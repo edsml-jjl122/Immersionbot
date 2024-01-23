@@ -1,26 +1,18 @@
 import discord
 from discord.ext import commands
-from datetime import datetime, timedelta, timezone
-import json
 from typing import Optional
 from discord import app_commands
 from discord.app_commands import Choice
 from typing import List
-import json
 from sql import Store, Set_Goal
 import helpers
 import logging
 import aiohttp
 import asyncio
-import time
-import pytz
-from discord.utils import get
-
 #############################################################
 
 log = logging.getLogger(__name__)
 
-RANK_NAMES = ['Beginner', 'Initiate', 'Apprentice', 'Hobbyist', 'Enthusiast', 'Aficionado', 'Sage', 'Master']
 #############################################################
 
 
@@ -87,7 +79,7 @@ class Log(commands.Cog):
             
         date = interaction.created_at
         
-        await interaction.response.defer()
+        #await interaction.response.defer()
 
         store_goal = Set_Goal("goals.db")
         
@@ -121,10 +113,15 @@ class Log(commands.Cog):
             dicts = helpers.get_time_relevant_logs(goals, relevant_logs)
             goals_description, goal_message = helpers.get_goal_description(dicts=dicts, log_bool=True, store=store_goal, interaction=interaction, media_type=media_type)
         else:
-            goals_description = []     
-        
+            goals_description = []
 
-        await interaction.edit_original_response(content=f'''{interaction.user.mention} logged {round(amount,2)} {format} {title} {helpers.random_emoji()}\n{msg}\ncurrent streak: **{store_prod.get_log_streak(interaction.user.id)[-1].streak} days**\n\n{"""__Goal progression:__
+        print(goals_description)
+        
+        log_embed = self.created_log_embed(interaction)
+
+        await interaction.response.send_message(embed=log_embed)
+        
+        await interaction.edit_original_response(content=f'''{interaction.user.mention} logged {round(amount,2)} {format} {title} {helpers.random_emoji()}\n{msg}\ncurrent streak: **{store_prod.get_log_streak(interaction.user.id, interaction.created_at)[-1].streak} days**\n\n{"""__Goal progression:__
 """ + str(goals_description) + """
 """ if goals_description else ""}{date.strftime("%B")}: ~~{helpers.millify(sum(i for i, j in list(old_weighed_points_mediums.values())))}~~ → {helpers.millify(sum(i for i, j in list(current_weighed_points_mediums.values())))}\n{("""
 **Next Achievement: **""" + media_type.upper() + " " + new_next_rank_name + " " + new_next_rank_emoji + " in " + str(new_rank_achievement-current_achievemnt_points) + " " + helpers.media_type_format(media_type.upper())) if new_next_rank_name != "Master" else "" if old_next_achievement == new_rank_achievement else """

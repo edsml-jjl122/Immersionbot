@@ -1,19 +1,21 @@
-# from sqlite3 import Row
 import discord
-from discord.ui import Select, View
 from discord.ext import commands
 from discord import app_commands
 import asyncio
 import os
 import help_text
 import datetime, time
-
+from constants import ALLOWED_CHANNELS
 start_time = time.time()
 
 class BotManager(commands.Cog):
     
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        self.myguild = self.bot.get_guild(617136488840429598)
 
     @app_commands.command(name="uptime", description="How long the bot is working.")
     @app_commands.checks.has_role("QA Tester")
@@ -42,28 +44,15 @@ class BotManager(commands.Cog):
         await interaction.response.send_message(f"Please select the cog you would like to reload.",
                                                 view=my_view,
                                                 ephemeral=True)
-        
-    # @app_commands.command(name="stop", description="Stops cogs.")
-    # @app_commands.checks.has_role("Moderator")
-    # async def stop(self, interaction: discord.Interaction):
-    #     if interaction.command_failed:
-    #         await interaction.response.send_message(f'I had a brain fart, try again please.', ephemeral=True)
-    #     options = []
-    #     for filename in os.listdir("./cogs"):
-    #         if filename.endswith(".py"):
-    #             item = discord.SelectOption(label=f'cogs.{filename}')
-    #             options.append(item)
-    #     async def my_callback(interaction):
-    #         for cog in select.values:
-    #             await self.bot.unload_extension(f"{cog[:-3]}")
-    #         selected_values = "\n".join(select.values)
-    #         await interaction.response.send_message(f'Unloaded the following cog:\n{selected_values}')
-
-    #     select = Select(min_values = 1, max_values = int(len(options)), options=options)   
-    #     select.callback = my_callback
-    #     view = View()
-    #     view.add_item(select)
-    #     await interaction.response.send_message(f'Please select the cog you would like to reload.', view=view)
+    
+    @app_commands.command(name="check_jp_channels", description="Checks allowed channels for jp points.")
+    @app_commands.checks.has_role("Moderator")
+    async def check_jp_channels(self, interaction: discord.Interaction):
+        my_view = CogSelectView(timeout=1800)
+        for channel_id in ALLOWED_CHANNELS:
+            cog_button = ShowButton(self.bot, label=self.myguild.get_channel(channel_id).name)
+            my_view.add_item(cog_button)
+        await interaction.response.send_message(view=my_view, ephemeral=True)
         
     @app_commands.command(name="sync", description="Syncs slash commands to the guild.")
     @app_commands.checks.has_role("Moderator")
@@ -165,12 +154,21 @@ class ReloadButtons(discord.ui.Button):
         self.bot = bot
 
     async def callback(self, interaction):
-        cog_to_reload = self.label 
+        cog_to_reload = self.label
         await self.bot.reload_extension(cog_to_reload)
         await interaction.response.send_message(f"Reloaded the following cog: {cog_to_reload}")
         print(f"Reloaded the following cog: {cog_to_reload}")
         await asyncio.sleep(10)
         await interaction.delete_original_response()
+
+class ShowButton(discord.ui.Button):
+
+    def __init__(self, bot: commands.Bot, label):
+        super().__init__(label=label)
+        self.bot = bot
+
+    async def callback(self, interaction):
+        return
         
 class LoadButtons(discord.ui.Button):
 

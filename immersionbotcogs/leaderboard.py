@@ -1,25 +1,12 @@
 import discord
 from discord.ext import commands
-from datetime import datetime
 from datetime import timedelta
-import json
 from typing import Optional
 from discord import app_commands
 from discord.app_commands import Choice
-
 from sql import Store
 import helpers
-import os
-# from dotenv import load_dotenv
-#############################################################
-
-# load_dotenv()
-
-_DB_NAME = 'prod.db'
-  
-TIMEFRAMES = ["WEEK, MONTH, YEAR, All"]
-
-#############################################################
+from constants import _DB_NAME, TIMEFRAMES
 
 class Leaderboard(commands.Cog):
 

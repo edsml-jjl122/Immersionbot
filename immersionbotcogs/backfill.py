@@ -1,28 +1,21 @@
 import discord
 from discord.ext import commands
-from datetime import datetime, timedelta, timezone
-import json
+from datetime import timedelta
 from typing import Optional
 from discord import app_commands
 from discord.app_commands import Choice
 from typing import List
-import json
-from sql import Store, Set_Goal
+from sql import Store
 import helpers
 import logging
 import aiohttp
 import asyncio
-import time
-import pytz
-from discord.utils import get
 
 #############################################################
 
 log = logging.getLogger(__name__)
 
-RANK_NAMES = ['Beginner', 'Initiate', 'Apprentice', 'Hobbyist', 'Enthusiast', 'Aficionado', 'Sage', 'Master']
 #############################################################
-
 
 class Backfill(commands.Cog):
 

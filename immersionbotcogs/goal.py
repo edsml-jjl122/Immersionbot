@@ -1,101 +1,12 @@
 import discord
 from discord.ext import commands
-from datetime import datetime
-from datetime import date as new_date, datetime, timedelta
 from datetime import timedelta
-import json
-from collections import defaultdict
-from typing import Optional
+from datetime import timedelta
 from discord import app_commands
-from discord.app_commands import Choice
-
-from vndb_thigh_highs import VNDB
-from vndb_thigh_highs.models import VN
-import re
-from AnilistPython import Anilist
-from discord.ui import Select
 from sql import Set_Goal, Store
-
 import time
-from discord.utils import get
-
 import helpers
-import pytz
-import os
-# from dotenv import load_dotenv
-
-import aiohttp
-from typing import List
-import asyncio
 import logging
-
-#############################################################
-
-log = logging.getLogger(__name__)
-
-#############################################################
-
-# class MyView(discord.ui.View):
-#     def __init__(self, *, timeout: Optional[float] = 900, data, beginning_index: int, end_index: int):
-#         super().__init__(timeout=timeout)
-#         self.data: list = data
-#         self.beginning_index: int = beginning_index
-#         self.ending_index: int = end_index
-    
-    
-#     async def edit_embed(self, data, beginning_index, ending_index):
-#         myembed = discord.Embed(title=f'{len(data)} Goals found.')
-#         for result in data[beginning_index:ending_index]:
-#             myembed.add_field(name=f'{result[0]}: {result[1]}',value=f'{result[2]}', inline=False)
-#         if len(data) >= 2:
-#             myembed.set_footer(text="... not all results displayed but you can pick any index.\n"
-#                                     "Pick an index to retrieve a scene next.")
-#         else:
-#             myembed.set_footer(text="Pick an index to retrieve a scene next.")
-#         return myembed
-        
-        
-#     @discord.ui.button(label='≪', style=discord.ButtonStyle.grey, row=1)
-#     async def go_to_first_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-#         self.beginning_index -= 10
-#         self.ending_index -= 10
-#         if self.beginning_index >= len(self.data):
-#             self.beginning_index = 0
-#             self.ending_index = 10
-#         myembed = await self.edit_embed(self.data, self.request, self.beginning_index, self.ending_index)
-#         await interaction.response.edit_message(embed=myembed)
-        
-        
-#     @discord.ui.button(label='Back', style=discord.ButtonStyle.blurple, row=1)
-#     async def go_to_previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-#         self.beginning_index -= 5
-#         self.ending_index -= 5
-#         myembed = await self.edit_embed(self.data, self.request, self.beginning_index, self.ending_index)
-#         await interaction.response.edit_message(embed=myembed)
-    
-    
-#     @discord.ui.button(label='Next', style=discord.ButtonStyle.blurple, row=1)
-#     async def go_to_next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-#         self.beginning_index += 5
-#         self.ending_index += 5
-#         myembed = await self.edit_embed(self.data, self.request, self.beginning_index, self.ending_index)
-#         await interaction.response.edit_message(embed=myembed)
-        
-        
-#     @discord.ui.button(label='≫', style=discord.ButtonStyle.grey, row=1)
-#     async def go_to_last_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-#         self.beginning_index += 10
-#         self.ending_index += 10
-#         if self.beginning_index >= len(self.data):
-#             self.beginning_index -= 10
-#             self.ending_index -= 10
-#         myembed = await self.edit_embed(self.data, self.request, self.beginning_index, self.ending_index)
-#         await interaction.response.edit_message(embed=myembed)
-        
-        
-#     @discord.ui.button(label='Quit', style=discord.ButtonStyle.red, row=1)
-#     async def stop_pages(self, interaction: discord.Interaction, button: discord.ui.Button):
-#         await interaction.message.delete()
 
 class Goal(commands.Cog):
 

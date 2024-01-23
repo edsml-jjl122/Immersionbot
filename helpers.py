@@ -8,7 +8,6 @@ from vndb_thigh_highs.models import VN
 from datetime import datetime, timedelta
 from AnilistPython import Anilist
 import random
-from discord.utils import get
 from constants import ACHIEVEMENTS, PT_ACHIEVEMENTS, ACHIEVEMENT_RANKS, ACHIEVEMENT_EMOJIS, ACHIEVEMENT_IDS, EMOJI_TABLE
 
 class SqliteEnum(Enum):
@@ -32,6 +31,12 @@ class Span(Enum):
     DATE = "DATE"
     WEEKLY = "WEEKLY"
     MONTHLY = "MONTHLY"
+
+import re
+def check_japanese_contents(content, jp_REGEX):
+    characters = re.findall(jp_REGEX, content)
+
+    return len(''.join(characters))
 
 import pytz
 
@@ -86,6 +91,30 @@ def span_to_text(span, end_date):
         return 'end of Week'
     if span == 'MONTHLY':
         return 'end of Month'
+
+def string_to_Datetime(interaction):
+    if not timeframe or timeframe.upper() == "MONTH":
+        #Month
+        timeframe = "Monthly"
+        beginn = interaction.created_at.replace(day=1, hour=0, minute=0)
+        end = (beginn.replace(day=28) + timedelta(days=4)) - timedelta(days=(beginn.replace(day=28) + timedelta(days=4)).day)
+
+    elif timeframe.upper() == "WEEK":
+        beginn = (interaction.created_at - timedelta(days=interaction.created_at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        end = (beginn + timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+        timeframe = f"""{beginn.strftime("{0}").format(ordinal(beginn.day))}-{end.strftime("{0} %b").format(ordinal(end.day))}"""
+    
+    elif timeframe.upper() == "YEAR":
+        beginn = interaction.created_at.date().replace(month=1, day=1)
+        end = interaction.created_at.date().replace(month=12, day=31)
+        timeframe = f"""{beginn.strftime("%Y")}"""
+    
+    elif timeframe.upper() == "ALL":
+        beginn = interaction.created_at.replace(year=2020)
+        end = interaction.created_at
+        timeframe = f"""All Time"""
+
+    return beginn, end
 
 def goal_algo(dict, log_bool, store, interaction, media_type):
     goals_description = []
@@ -168,8 +197,11 @@ def _to_amount(media_type, amount):
         return amount * 0.45
     elif media_type == "READING":
         return amount / 350.0
+    elif media_type == "JAPANESE":
+        return amount / 25
     else:
         raise Exception(f'Unknown media type: {media_type}')
+
 
 #returns dict with total amount of points for each media_type
 #points are weighted via MULTIPLIERS
@@ -196,6 +228,8 @@ def media_type_format(media_type):
         return "mins"
     elif media_type == "ANYTHING":
         return "anything"
+    elif media_type == "JAPANESE":
+        return "chars"
     else:
         raise Exception(f'Unknown media type: {media_type}')
     

@@ -1,32 +1,13 @@
 import discord
 from discord.ext import commands
-from datetime import datetime
-from datetime import date as new_date, datetime, timedelta
+from datetime import date as timedelta
 from datetime import timedelta
-import json
-from collections import defaultdict
 from typing import Optional
 from discord import app_commands
 from discord.app_commands import Choice
-
-from vndb_thigh_highs import VNDB
-from vndb_thigh_highs.models import VN
-import re
-from AnilistPython import Anilist
-from discord.ui import Select
-from sql import Set_Goal, Store
-
+from sql import Set_Goal
 import time
-from discord.utils import get
-
 import helpers
-import pytz
-import os
-# from dotenv import load_dotenv
-
-import aiohttp
-from typing import List
-import asyncio
 import logging
 
 #############################################################

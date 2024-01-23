@@ -24,6 +24,9 @@ class CustomCommandTree(discord.app_commands.CommandTree):
 
         if isinstance(error, discord.app_commands.errors.MissingRole):
             return await interaction.response.send_message(content='''Role 'Moderator' is required to run this command.''', ephemeral=True)
+        
+        # if isinstance(error, discord.app_commands.errors.CommandInvokeError):
+        #     return await interaction.response.send_message(content='''Something went wrong, try again please.''', ephemeral=True)
 
         command = interaction.command
         if command is not None:
@@ -71,4 +74,4 @@ class MyBot(commands.Bot):
         print(f"Synced commands to guild with id {617136488840429598}.")
 
 bot = MyBot()
-bot.run("MTE5MjkwMTQwMzUxODE4MTUwNw.G_M2iy.xWNMqPKnA7kUCCyazGaS-WWdQDNAVMCK7g7cvA")
+bot.run("MTE5MjkwMTQwMzUxODE4MTUwNw.GBRPvA.ZAYR9KFYgA5Q1Vs-RKA_uREwF6lkhK6Cbt7M8o")

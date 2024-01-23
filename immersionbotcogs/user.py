@@ -1,24 +1,22 @@
 import discord
 from discord.ext import commands
-from datetime import datetime
-from datetime import date as new_date, datetime, timedelta
-import json
+from datetime import date as new_date, timedelta
 from typing import Optional
 from discord import app_commands
 from discord.app_commands import Choice
 
 from collections import defaultdict
-import math
 import matplotlib.pyplot as plt
 import pandas as pd
 
 from enum import Enum
 import sqlite3
-from sql import Store
+from sql import Store, Set_jp
 import os
 
 import helpers
-from constants import MULTIPLIERS, _DB_NAME, TIMEFRAMES
+from constants import _DB_NAME, TIMEFRAMES, _JP_DB
+import asyncio
 
 class SqliteEnum(Enum):
     def __conform__(self, protocol):
@@ -33,6 +31,7 @@ class MediaType(SqliteEnum):
     VN = 'VN'
     ANIME = 'ANIME'
     LISTENING = 'LISTENING'
+    JAPANESE = 'JAPANESE'
 
 class User(commands.Cog):
 
@@ -43,7 +42,7 @@ class User(commands.Cog):
     async def on_ready(self):
         self.myguild = self.bot.get_guild(617136488840429598)
     
-    async def generate_trend_graph(self, timeframe, interaction, weighed_points_mediums, logs):
+    async def generate_trend_graph(self, timeframe, interaction, logs):
 
         def daterange(start_date, end_date):
                 for n in range(int((end_date - start_date).days)):
@@ -93,6 +92,7 @@ class User(commands.Cog):
             "VN": "tab:cyan",
             "ANIME": "tab:purple",
             "LISTENING": "tab:blue",
+            "JAPANESE": "tab:pink"
         }
 
         accumulator = 0
@@ -115,15 +115,16 @@ class User(commands.Cog):
         embed.add_field(name='**Timeframe**', value=timeframe)
         embed.add_field(name='**Points**', value=helpers.millify(sum(i for i, j in list(weighed_points_mediums.values()))))
         embed.add_field(name='**Longest streak:**', value=f'''{store.get_longest_streak(interaction.user.id)[0].streak} days''')
-        embed.add_field(name='**Current streak:**', value=f'''{store.get_log_streak(interaction.user.id)[-1].streak} days''')
+        embed.add_field(name='**Current streak:**', value=f'''{store.get_log_streak(interaction.user.id, interaction.created_at)} days''')
         amounts_by_media_desc = '\n'.join(f'{key}: {helpers.millify(weighed_points_mediums[key][1])} {helpers.media_type_format(key)} → {helpers.millify(weighed_points_mediums[key][0])} pts' for key in weighed_points_mediums)
         embed.add_field(name='**Breakdown**', value=amounts_by_media_desc or 'None', inline=False)
         
         await self.generate_trend_graph(timeframe, interaction, weighed_points_mediums, logs)
         file = discord.File(fr'''{[file for file in os.listdir() if file.endswith('_overview_chart.png')][0]}''')
-        embed.set_image(url=f"attachment://{interaction.user.id}_overview_chart.png")
+        filename = f"{interaction.user.id}_overview_chart.png"
+        embed.set_image(url=f"attachment://{filename}")
         
-        return embed, file
+        return embed, file, filename
 
     @app_commands.command(name='user', description=f'Immersion overview of a user.')
     @app_commands.describe(timeframe='''DEFAULT=MONTH; Week, Month, Year, All, [year-month-day] or [year-month-day-year-month-day]''')
@@ -138,31 +139,9 @@ class User(commands.Cog):
         if not name:
             name = None
 
-        if name and media_type:
-            calc_amount, format, msg, title = helpers.point_message_converter(media_type.upper(), 0, name)
+        beginn, end = helpers.string_to_Datetime(interaction)
 
-        if not timeframe or timeframe.upper() == "MONTH":
-            #Month
-            timeframe = "Monthly"
-            beginn = interaction.created_at.replace(day=1, hour=0, minute=0)
-            end = (beginn.replace(day=28) + timedelta(days=4)) - timedelta(days=(beginn.replace(day=28) + timedelta(days=4)).day)
-
-        elif timeframe.upper() == "WEEK":
-            beginn = (interaction.created_at - timedelta(days=interaction.created_at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-            end = (beginn + timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
-            timeframe = f"""{beginn.strftime("{0}").format(helpers.ordinal(beginn.day))}-{end.strftime("{0} %b").format(helpers.ordinal(end.day))}"""
-        
-        elif timeframe.upper() == "YEAR":
-            beginn = interaction.created_at.date().replace(month=1, day=1)
-            end = interaction.created_at.date().replace(month=12, day=31)
-            timeframe = f"""{beginn.strftime("%Y")}"""
-        
-        elif timeframe.upper() == "ALL":
-            beginn = interaction.created_at.replace(year=2020)
-            end = interaction.created_at
-            timeframe = f"""All Time"""
-
-        elif timeframe.upper() not in TIMEFRAMES:
+        if timeframe.upper() not in TIMEFRAMES:
             try:
                 dates = timeframe.split('-')
                 if len(timeframe.split('-')) == 6:
@@ -185,18 +164,18 @@ class User(commands.Cog):
         logs = store.get_logs_by_user(user.id, media_type, (beginn, end), name)
         if logs == []:
             return await interaction.edit_original_response(content='No logs were found.')
-        
-        weighed_points_mediums = helpers.multiplied_points(logs)
-        print(weighed_points_mediums)
-        embed, file = await self.create_embed(timeframe, interaction, weighed_points_mediums, logs, user, store)
+
+        store_jp = Set_jp(_JP_DB)
+        weighed_points_mediums = helpers.multiplied_points(logs + store_jp.get_jp(interaction.user.id))
+        embed, file, filename = await self.create_embed(timeframe, interaction, weighed_points_mediums, logs, user, store)
     
         await interaction.response.send_message(embed=embed, file=file)
 
         await asyncio.sleep(1)
 
-        for file in os.listdir('final/'):
-            if "overview" in file:
-                os.remove(f'final/{file}')
+        for file in os.listdir():
+            if file == filename:
+                os.remove(f'{filename}')
 
     @app_commands.command(name='me', description=f'Immersion overview of yourself.')
     @app_commands.checks.has_role("QA Tester")
@@ -208,31 +187,9 @@ class User(commands.Cog):
         if not name:
             name = None
 
-        if name and media_type:
-            calc_amount, format, msg, title = helpers.point_message_converter(media_type.upper(), 0, name)
+        beginn, end = helpers.string_to_Datetime(interaction)
 
-        if not timeframe or timeframe.upper() == "MONTH":
-            #Month
-            timeframe = "Monthly"
-            beginn = interaction.created_at.replace(day=1, hour=0, minute=0)
-            end = (beginn.replace(day=28) + timedelta(days=4)) - timedelta(days=(beginn.replace(day=28) + timedelta(days=4)).day)
-
-        elif timeframe.upper() == "WEEK":
-            beginn = (interaction.created_at - timedelta(days=interaction.created_at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-            end = (beginn + timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
-            timeframe = f"""{beginn.strftime("{0}").format(helpers.ordinal(beginn.day))}-{end.strftime("{0} %b").format(helpers.ordinal(end.day))}"""
-        
-        elif timeframe.upper() == "YEAR":
-            beginn = interaction.created_at.date().replace(month=1, day=1)
-            end = interaction.created_at.date().replace(month=12, day=31)
-            timeframe = f"""{beginn.strftime("%Y")}"""
-        
-        elif timeframe.upper() == "ALL":
-            beginn = interaction.created_at.replace(year=2020)
-            end = interaction.created_at
-            timeframe = f"""All Time"""
-
-        elif timeframe.upper() not in TIMEFRAMES:
+        if timeframe.upper() not in TIMEFRAMES:
             try:
                 dates = timeframe.split('-')
                 if len(timeframe.split('-')) == 6:
@@ -256,11 +213,17 @@ class User(commands.Cog):
         if logs == []:
             return await interaction.edit_original_response(content='No logs were found.')
         
-        weighed_points_mediums = helpers.multiplied_points(logs)
-        print(weighed_points_mediums)
-        embed, file = await self.create_embed(timeframe, interaction, weighed_points_mediums, logs, interaction.user, store)
+        store_jp = Set_jp(_JP_DB)
+        weighed_points_mediums = helpers.multiplied_points(logs + store_jp.get_jp(interaction.user.id))
+        embed, file, filename = await self.create_embed(timeframe, interaction, weighed_points_mediums, logs, interaction.user, store)
         
         await interaction.response.send_message(embed=embed, file=file)
+
+        await asyncio.sleep(1)
+
+        for file in os.listdir():
+            if file == filename:
+                os.remove(f'{filename}')
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(User(bot))

@@ -17,6 +17,7 @@ class MediaType(SqliteEnum):
     ANIME = 'ANIME'
     LISTENING = 'LISTENING'
     ANYTHING = 'ANYTHING'
+    JAPANESE = 'JAPANESE'
 
 def namedtuple_factory(cursor, row):
     """Returns sqlite rows as named tuples."""
@@ -194,7 +195,7 @@ class Store:
         # cursor.execute(query)
         # return cursor.fetchall()
         
-    def get_log_streak(self, discord_user_id):
+    def get_log_streak(self, discord_user_id, now):
         #refractor later, goes through all logs could result in big process time
         query = f"""SELECT discord_user_id, max(created_at) as ends_at, count(*) as streak
         FROM (SELECT *, date(created_at, -(row_number() OVER (PARTITION BY discord_user_id)) || ' days') 
@@ -203,6 +204,16 @@ class Store:
         FROM logs WHERE discord_user_id={discord_user_id}
         ORDER BY created_at) as points) as points
         """
+#         query = f"""WITH cte(discord_user_id, created_at) AS (
+#   SELECT {discord_user_id}, '{now}'
+#   UNION ALL
+#   SELECT discord_user_id, date(c.created_at, '-1 day')
+#   FROM cte c
+#   WHERE EXISTS (SELECT 1 FROM logs t WHERE t.discord_user_id = c.discord_user_id AND t.created_at = date(c.created_at, '-1 day'))
+# )
+# SELECT * 
+# FROM cte 
+# WHERE created_at < (SELECT MAX(created_at) FROM cte); """
         
         return self.fetch(query)
 
@@ -298,7 +309,34 @@ class Store:
         # query = f"""SELECT DISTINCT 
         # discord_guild_id, created_at RANK() OVER(PARTITION BY discord_user_id ORDER BY created_at) rank 
         # FROM logs WHERE discord_user_id={discord_user_id}"""
+
+class Set_jp:
+    def __init__(self, db_name):
+            self.conn = sqlite3.connect(
+                db_name, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
+            self.conn.row_factory = namedtuple_factory
+
+    def fetch(self, query):
+        print(query)
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchall()
     
+    def log_jp(self, discord_user_id, channel_id, media_type, jp, amount, created_at):
+        with self.conn:
+            query = """
+            INSERT INTO jp (discord_user_id, channel_id, media_type, japanese, amount, created_at)
+            VALUES (?,?,?,?,?,?);
+            """
+            data = (discord_user_id, channel_id, media_type, jp, amount, created_at)
+            self.conn.execute(query, data)
+
+    def get_jp(self, discord_user_id):
+        query = f"""SELECT * FROM jp
+        WHERE discord_user_id={discord_user_id}
+        ORDER BY created_at ASC;"""
+        
+        return self.fetch(query)
 
 class Set_Goal:
     def __init__(self, db_name):

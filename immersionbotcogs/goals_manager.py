@@ -1,23 +1,14 @@
 import discord
 from discord.ext import commands
 from discord.ext import tasks
-import json
 from datetime import datetime
-from discord.app_commands import Choice
 from typing import Optional
-import asyncpg
-import os
 from datetime import timedelta
 import pytz
 from discord.ui import Select
 from discord import app_commands
 from sql import Store, Set_Goal
-# from dotenv import load_dotenv
 import helpers
-#############################################################
-
-  
-#############################################################
 
 class MyView(discord.ui.View):
     def __init__(self, *, timeout: Optional[float] = 900, data, beginning_index: int, end_index: int):
@@ -63,7 +54,7 @@ class MyView(discord.ui.View):
         self.beginning_index += 5
         self.ending_index += 5
         myembed = await self.edit_embed(self.data, self.beginning_index, self.ending_index)
-        await interaction.response.edit_message(embed=myembed)        
+        await interaction.response.edit_message(embed=myembed)
         
         
     @discord.ui.button(label='≫', style=discord.ButtonStyle.grey, row=1)
@@ -115,7 +106,6 @@ class Goals_manager(commands.Cog):
         print(day_dict, date_dict, weekly_dict, monthly_dict)
         goals, goal_message = helpers.get_goal_description(day_dict=day_dict, date_dict=date_dict, weekly_dict=weekly_dict, monthly_dict=monthly_dict, goals=goals, log=False, store=store_goal, interaction=interaction, media_type=None)
 
-        goals_description = []
         raw_goals = store_goal.get_goals(interaction.user.id)
 
         results = []
@@ -128,7 +118,7 @@ class Goals_manager(commands.Cog):
             myembed.add_field(name=f'{result[0]}. goal',value=f'{result[1]}', inline=False)
         if len(results) >= 5:
             myembed.set_footer(text="... not all results displayed but you can pick any index.\n"
-                               "Pick an index to retrieve a scene next.")
+                                "Pick an index to retrieve a scene next.")
         else:
             myembed.set_footer(text="Pick an index to retrieve a scene next.")
         beginning_index = 0

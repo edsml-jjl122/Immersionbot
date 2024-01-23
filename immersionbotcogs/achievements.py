@@ -1,31 +1,8 @@
 import discord
 from discord.ext import commands
-from datetime import datetime, timedelta, timezone
-import json
-from typing import Optional
 from discord import app_commands
-from discord.app_commands import Choice
-from typing import List
-import json
-from sql import Store, Set_Goal
+from sql import Store
 import helpers
-import os
-
-from discord.utils import get
-#############################################################
-
-    
-MULTIPLIERS = {
-    'BOOK': 1,
-    'MANGA': 0.2,
-    'VN': 1 / 350,
-    'ANIME': 9.5,
-    'READING': 1 / 350,
-    'LISTENING': 0.45,
-    'READTIME': 0.45
-}
-
-#############################################################
 
 class Achievements(commands.Cog):
 
