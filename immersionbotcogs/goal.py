@@ -6,7 +6,6 @@ from discord import app_commands
 from sql import Set_Goal, Store
 import time
 import helpers
-import logging
 
 class Goal(commands.Cog):
 
