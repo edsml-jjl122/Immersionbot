@@ -10,6 +10,9 @@ import helpers
 import aiohttp
 import asyncio
 from constants import TIMEFRAMES
+import logging
+
+log = logging.getLogger(__name__)
 
 class Logs_Display(commands.Cog):
 
@@ -39,6 +42,9 @@ class Logs_Display(commands.Cog):
 
         if not name:
             name = None
+
+        if name and media_type:
+            calc_amount, format, msg, title = helpers.point_message_converter(media_type.upper(), 0, name)
 
         if not timeframe or timeframe.upper() == "MONTH":
             #Month
