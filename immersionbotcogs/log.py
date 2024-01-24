@@ -79,7 +79,7 @@ class Log(commands.Cog):
             
         date = interaction.created_at
         
-        #await interaction.response.defer()
+        await interaction.response.defer()
 
         store_goal = Set_Goal("goals.db")
         
@@ -117,11 +117,7 @@ class Log(commands.Cog):
 
         print(goals_description)
         
-        log_embed = self.created_log_embed(interaction)
-
-        await interaction.response.send_message(embed=log_embed)
-        
-        await interaction.edit_original_response(content=f'''{interaction.user.mention} logged {round(amount,2)} {format} {title} {helpers.random_emoji()}\n{msg}\ncurrent streak: **{store_prod.get_log_streak(interaction.user.id, interaction.created_at)[-1].streak} days**\n\n{"""__Goal progression:__
+        await interaction.edit_original_response(content=f'''{interaction.user.mention} logged {round(amount,2)} {format} {title} {helpers.random_emoji()}\n{msg}\ncurrent streak: **{store_prod.get_log_streak(interaction.user.id)[0].current_streak} days**\n\n{"""__Goal progression:__
 """ + str(goals_description) + """
 """ if goals_description else ""}{date.strftime("%B")}: ~~{helpers.millify(sum(i for i, j in list(old_weighed_points_mediums.values())))}~~ → {helpers.millify(sum(i for i, j in list(current_weighed_points_mediums.values())))}\n{("""
 **Next Achievement: **""" + media_type.upper() + " " + new_next_rank_name + " " + new_next_rank_emoji + " in " + str(new_rank_achievement-current_achievemnt_points) + " " + helpers.media_type_format(media_type.upper())) if new_next_rank_name != "Master" else "" if old_next_achievement == new_rank_achievement else """
@@ -193,136 +189,3 @@ class Log(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Log(bot))
-    
-                    # span_goals = [span for duid, gt, mt, amount, text, span, created_at, end in goals]
-                # if "DAY" or "DAILY" in goals:
-                #     day_releveant_logs = [log for log in relevant_logs if interaction.created_at.replace(hour=0, minute=0, second=0, microsecond=0) < log.created_at.replace(tzinfo=pytz.UTC) < (interaction.created_at.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1))] #will take logs from the day before the goals was created
-                
-                # if "DATE" in span_goals:
-                #     i =  first_occ(goals, "DATE")
-                #     if i != []:
-                #         date_relevant_logs = [log for log in relevant_logs if datetime.strptime(goals[0].created_at, "%Y-%m-%d %H:%M:%S.%f%z") < log.created_at.replace(tzinfo=pytz.UTC) < datetime.strptime(goals[-1].end, "%Y-%m-%d %H:%M:%S.%f%z")]
-                
-                # # if "DAY" or "DAILY" in goals:
-                # #     # print(interaction.created_at.replace(hour=0, minute=0, second=0, microsecond=0))
-                # #     # print(interaction.created_at.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1))
-                # #     # for log in relevant_logs:
-                # #     #     #print((log.created_at).astimezone())
-                # #     #     print(log.created_at.replace(tzinfo=pytz.UTC))
-                # #     day_releveant_logs = [log for log in relevant_logs if interaction.created_at.replace(hour=0, minute=0, second=0, microsecond=0) < log.created_at.replace(tzinfo=pytz.UTC) < (interaction.created_at.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1))] #will take logs from the day before the goals was created
-            
-                # # if "DATE" in goals:
-                # #     i =  first_occ(goals, "DATE")
-                # #     if i != None:
-                # #         date_relevant_logs = [log for log in relevant_logs if goals[0].created_at < log.created_at.replace(tzinfo=pytz.UTC) < goals[-1].end]
-                # # print(relevant_logs)
-                
-                # print(goals)
-                
-                # print(day_releveant_logs)
-                
-                # for goals_row in goals:
-                #     if goals_row.span == "DAY" or goals_row.span == "DAILY":
-                #         points = []
-                #         for log in day_releveant_logs:
-                #             if goals_row.text == (log.note.strip('][').split(', '))[0].replace("'", ""):
-                #                 if goals_row.goal_type == "MEDIA":
-                #                     points.append(log.pt)
-                #                 if goals_row.goal_type == "POINTS":
-                #                     points.append(helpers._to_amount(log.media_type.value, log.pt))
-                #                 continue
-                #             if goals_row.media_type == log.media_type:
-                #                 if goals_row.goal_type == "MEDIA":
-                #                     points.append(log.pt)
-                #                 if goals_row.goal_type == "POINTS":
-                #                     points.append(helpers._to_amount(log.media_type.value, log.pt))
-                #                 continue
-                #         points = sum(points)
-                #         if points >= goals_row.amount:
-                #             goals_description.append(f"""- ~~{points}/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span})~~""")
-                #         else:
-                #             goals_description.append(f"""- {points}/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span})""")
-                #         continue
-                    
-                #     if goals_row.span == "DATE":  
-                #         points = []
-                #         for log in date_relevant_logs:
-                #             if goals_row.text == (log.note.strip('][').split(', '))[0].replace("'", ""):
-                #                 if goals_row.goal_type == "MEDIA":
-                #                     points.append(log.pt)
-                #                 if goals_row.goal_type == "POINTS":
-                #                     points.append(helpers._to_amount(log.media_type.value, log.pt))
-                #                 continue
-                #             if goals_row.media_type == log.media_type:
-                #                 if goals_row.goal_type == "MEDIA":
-                #                     points.append(log.pt)
-                #                 if goals_row.goal_type == "POINTS":
-                #                     points.append(helpers._to_amount(log.media_type.value, log.pt))
-                #                 continue
-                #         points = sum(points)
-                #         if points >= goals_row.amount:
-                #             goals_description.append(f"""- ~~{points}/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span})~~""")
-                #         else:
-                #             goals_description.append(f"""- {points}/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span})""")
-                #         continue
-                    
-                    
-                # for goals_row in goals:
-                #     if goals_row.goal_type == "MEDIA":
-                #         if goals_row.span == "DAY" or goals_row.span == "DAILY":  
-                #             if any(goals_row.text in note for media_type, pt, note, created_at in day_releveant_logs):
-                #                 i = indices(day_releveant_logs, goals_row.text)
-                #                 points = sum([day_releveant_logs[c].pt for c in i])
-                                    
-                #                 if points >= goals_row.amount:
-                #                     goals_description.append(f"""- ~~{points}/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span})~~""")
-                #                 else:
-                #                     goals_description.append(f"""- {points}/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span})""")
-                #                 continue
-                #             else:
-                #                 goals_description.append(f"""- 0/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span})""")
-                #                 continue
-                            
-                #         if goals_row.span == "DATE":  
-                #             if any(goals_row.text in note for media_type, pt, note, created_at in date_relevant_logs):
-                #                 i = indices(day_releveant_logs, goals_row.text)
-                #                 points = sum([day_releveant_logs[c].pt for c in i])
-                                    
-                #                 if points >= goals_row.amount:
-                #                     goals_description.append(f"""- ~~{points}/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span + "=" + str(goals_row.end)})~~""")
-                #                 else:
-                #                     goals_description.append(f"""- {points}/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span + "=" + str(goals_row.end)})""")
-                #                 continue
-                #             else:
-                #                 goals_description.append(f"""- 0/{goals_row.amount} {helpers.media_type_format(goals_row.media_type.value)} {goals_row.text} ({goals_row.span + "=" + str(goals_row.end)})""")
-                #                 continue
-                            
-                            
-                #     if goals_row.goal_type == "POINTS":
-                #         if goals_row.span == "DAY" or goals_row.span == "DAILY":  
-                #             if any(goals_row.text in note for media_type, pt, note, created_at in day_releveant_logs):
-                #                 i = indices(day_releveant_logs, goals_row.text)
-                #                 points = sum([helpers._to_amount(day_releveant_logs[c].media_type.value, day_releveant_logs[c].pt) for c in i])
-                                    
-                #                 if points >= goals_row.amount:
-                #                     goals_description.append(f"""- ~~{points}/{goals_row.amount} pooints {goals_row.text} ({goals_row.span})~~""")
-                #                 else:
-                #                     goals_description.append(f"""- {points}/{goals_row.amount} pooints {goals_row.text} ({goals_row.span})""")
-                #                 continue
-                #             else:
-                #                 goals_description.append(f"""- 0/{goals_row.amount} pooints {goals_row.text} ({goals_row.span})""")
-                #                 continue
-                            
-                #         if goals_row.span == "DATE":  
-                #             if any(goals_row.text in note for media_type, pt, note, created_at in date_relevant_logs):
-                #                 i = indices(day_releveant_logs, goals_row.text)
-                #                 points = sum([helpers._to_amount(day_releveant_logs[c].media_type.value, day_releveant_logs[c].pt) for c in i])
-                                    
-                #                 if points >= goals_row.amount:
-                #                     goals_description.append(f"""- ~~{points}/{goals_row.amount} pooints {goals_row.text} ({goals_row.span + "=" + str(goals_row.end)})~~""")
-                #                 else:
-                #                     goals_description.append(f"""- {points}/{goals_row.amount} pooints {goals_row.text} ({goals_row.span + "=" + str(goals_row.end)})""")
-                #                 continue
-                #             else:
-                #                 goals_description.append(f"""- 0/{goals_row.amount} points {goals_row.text} ({goals_row.span + "=" + str(goals_row.end)})""")
-                #                 continue
