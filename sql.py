@@ -195,15 +195,63 @@ class Store:
         # cursor.execute(query)
         # return cursor.fetchall()
         
-    def get_log_streak(self, discord_user_id, now):
+    def get_log_streak(self, discord_user_id):
         #refractor later, goes through all logs could result in big process time
-        query = f"""SELECT discord_user_id, max(created_at) as ends_at, count(*) as streak
-        FROM (SELECT *, date(created_at, -(row_number() OVER (PARTITION BY discord_user_id)) || ' days') 
-        as base_date
-        FROM (SELECT DISTINCT date(created_at, '0 days') as created_at, discord_user_id
-        FROM logs WHERE discord_user_id={discord_user_id}
-        ORDER BY created_at) as points) as points
-        """
+        query = f"""WITH ranked_logs AS (
+  SELECT
+    discord_user_id,
+    DATE(created_at) as created_at,
+    RANK() OVER (PARTITION BY discord_user_id ORDER BY created_at) AS log_rank
+  FROM
+    logs WHERE discord_user_id = {discord_user_id}
+  GROUP BY
+    discord_user_id, DATE(created_at)
+),
+streaks AS (
+  SELECT
+    discord_user_id,
+    DATE(created_at, '-' || log_rank || ' days') AS streak_group,
+    COUNT(*) streak,
+    MIN(created_at) started_on,
+    MAX(created_at) ended_on
+  FROM
+    ranked_logs
+  GROUP BY
+    discord_user_id,
+    streak_group
+),
+current_streaks AS (
+  SELECT
+    discord_user_id,
+    streak,
+    started_on,
+    ended_on
+  FROM
+    streaks
+  WHERE
+    ended_on = DATE('now')
+)
+SELECT
+  streaks.discord_user_id,
+  streaks.started_on AS longest_streak_started_on,
+  streaks.ended_on AS longest_streak_ended_on,
+  MAX(streaks.streak) AS longest_streak,
+  current_streaks.started_on AS current_streak_started_on,
+  current_streaks.ended_on AS current_streak_ended_on,
+  current_streaks.streak AS current_streak
+FROM
+  streaks
+LEFT JOIN
+  current_streaks ON current_streaks.discord_user_id = streaks.discord_user_id
+GROUP BY
+  streaks.discord_user_id;"""
+        # query = f"""SELECT discord_user_id, max(created_at) as ends_at, count(*) as streak
+        # FROM (SELECT *, date(created_at, -(row_number() OVER (PARTITION BY discord_user_id)) || ' days') 
+        # as base_date
+        # FROM (SELECT DISTINCT date(created_at, '0 days') as created_at, discord_user_id
+        # FROM logs WHERE discord_user_id={discord_user_id}
+        # ORDER BY created_at) as points) as points
+        # """
 #         query = f"""WITH cte(discord_user_id, created_at) AS (
 #   SELECT {discord_user_id}, '{now}'
 #   UNION ALL
