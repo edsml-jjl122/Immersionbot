@@ -66,10 +66,6 @@ class MyView(discord.ui.View):
             self.ending_index -=5
         myembed = await self.edit_embed(self.data, self.beginning_index, self.ending_index)
         await interaction.response.edit_message(embed=myembed)
-        
-    @discord.ui.button(label='Quit', style=discord.ButtonStyle.red, row=1)
-    async def stop_pages(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.message.delete()
 
 class Goals_manager(commands.Cog):
     def __init__(self, bot):
@@ -102,20 +98,19 @@ class Goals_manager(commands.Cog):
 
         relevant_logs = store_prod.get_goal_relevant_logs(interaction.user.id, beginn, end)
 
-        day_dict, date_dict, weekly_dict, monthly_dict = helpers.get_time_relevant_logs(interaction, goals, relevant_logs)
-        print(day_dict, date_dict, weekly_dict, monthly_dict)
-        goals, goal_message = helpers.get_goal_description(day_dict=day_dict, date_dict=date_dict, weekly_dict=weekly_dict, monthly_dict=monthly_dict, goals=goals, log=False, store=store_goal, interaction=interaction, media_type=None)
+        dicts = helpers.get_time_relevant_logs(goals, relevant_logs)
+        goals, goal_message = helpers.get_goal_description(dicts=dicts, log_bool=False, store=store_goal, interaction=interaction, media_type=None)
 
         raw_goals = store_goal.get_goals(interaction.user.id)
 
         results = []
-        for i, goal in enumerate(zip(goals, raw_goals)):
-            results.append((i + 1, goal[0], goal[1]))
+        for i, goal in enumerate(zip(goals.split('\n'), raw_goals)):
+            results.append((i + 1, goal, goal[1]))
 
         print(results)
         myembed = discord.Embed(title=f'Select a goal to delete:')
         for result in results[0:5]:
-            myembed.add_field(name=f'{result[0]}. goal',value=f'{result[1]}', inline=False)
+            myembed.add_field(name=f'{result[0]}. goal',value=f'{result[1][0]}', inline=False)
         if len(results) >= 5:
             myembed.set_footer(text="... not all results displayed but you can pick any index.\n"
                                 "Pick an index to retrieve a scene next.")
