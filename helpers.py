@@ -92,7 +92,7 @@ def span_to_text(span, end_date):
     if span == 'MONTHLY':
         return 'end of Month'
 
-def string_to_Datetime(interaction):
+def string_to_Datetime(interaction, timeframe):
     if not timeframe or timeframe.upper() == "MONTH":
         #Month
         timeframe = "Monthly"

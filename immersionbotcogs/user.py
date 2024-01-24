@@ -139,9 +139,28 @@ class User(commands.Cog):
         if not name:
             name = None
 
-        beginn, end = helpers.string_to_Datetime(interaction)
+        if not timeframe or timeframe.upper() == "MONTH":
+            #Month
+            timeframe = "Monthly"
+            beginn = interaction.created_at.replace(day=1, hour=0, minute=0)
+            end = (beginn.replace(day=28) + timedelta(days=4)) - timedelta(days=(beginn.replace(day=28) + timedelta(days=4)).day)
 
-        if timeframe.upper() not in TIMEFRAMES:
+        elif timeframe.upper() == "WEEK":
+            beginn = (interaction.created_at - timedelta(days=interaction.created_at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            end = (beginn + timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+            timeframe = f"""{beginn.strftime("{0}").format(helpers.ordinal(beginn.day))}-{end.strftime("{0} %b").format(helpers.ordinal(end.day))}"""
+        
+        elif timeframe.upper() == "YEAR":
+            beginn = interaction.created_at.date().replace(month=1, day=1)
+            end = interaction.created_at.date().replace(month=12, day=31)
+            timeframe = f"""{beginn.strftime("%Y")}"""
+        
+        elif timeframe.upper() == "ALL":
+            beginn = interaction.created_at.replace(year=2020)
+            end = interaction.created_at
+            timeframe = f"""All Time"""
+
+        elif timeframe.upper() not in TIMEFRAMES:
             try:
                 dates = timeframe.split('-')
                 if len(timeframe.split('-')) == 6:
@@ -187,9 +206,28 @@ class User(commands.Cog):
         if not name:
             name = None
 
-        beginn, end = helpers.string_to_Datetime(interaction)
+        if not timeframe or timeframe.upper() == "MONTH":
+            #Month
+            timeframe = "Monthly"
+            beginn = interaction.created_at.replace(day=1, hour=0, minute=0)
+            end = (beginn.replace(day=28) + timedelta(days=4)) - timedelta(days=(beginn.replace(day=28) + timedelta(days=4)).day)
 
-        if timeframe.upper() not in TIMEFRAMES:
+        elif timeframe.upper() == "WEEK":
+            beginn = (interaction.created_at - timedelta(days=interaction.created_at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            end = (beginn + timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+            timeframe = f"""{beginn.strftime("{0}").format(helpers.ordinal(beginn.day))}-{end.strftime("{0} %b").format(helpers.ordinal(end.day))}"""
+        
+        elif timeframe.upper() == "YEAR":
+            beginn = interaction.created_at.date().replace(month=1, day=1)
+            end = interaction.created_at.date().replace(month=12, day=31)
+            timeframe = f"""{beginn.strftime("%Y")}"""
+        
+        elif timeframe.upper() == "ALL":
+            beginn = interaction.created_at.replace(year=2020)
+            end = interaction.created_at
+            timeframe = f"""All Time"""
+
+        elif timeframe.upper() not in TIMEFRAMES:
             try:
                 dates = timeframe.split('-')
                 if len(timeframe.split('-')) == 6:
