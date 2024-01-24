@@ -114,8 +114,8 @@ class User(commands.Cog):
         embed.add_field(name='**User**', value=user.display_name)
         embed.add_field(name='**Timeframe**', value=timeframe)
         embed.add_field(name='**Points**', value=helpers.millify(sum(i for i, j in list(weighed_points_mediums.values()))))
-        embed.add_field(name='**Longest streak:**', value=f'''{store.get_longest_streak(interaction.user.id)[0].streak} days''')
-        embed.add_field(name='**Current streak:**', value=f'''{store.get_log_streak(interaction.user.id, interaction.created_at)} days''')
+        embed.add_field(name='**Longest streak:**', value=f'''{store.get_longest_streak(interaction.user.id)[0].longest_streak} days''')
+        embed.add_field(name='**Current streak:**', value=f'''{store.get_log_streak(interaction.user.id)[0].current_streak} days''')
         amounts_by_media_desc = '\n'.join(f'{key}: {helpers.millify(weighed_points_mediums[key][1])} {helpers.media_type_format(key)} → {helpers.millify(weighed_points_mediums[key][0])} pts' for key in weighed_points_mediums)
         embed.add_field(name='**Breakdown**', value=amounts_by_media_desc or 'None', inline=False)
         
