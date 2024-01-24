@@ -7,7 +7,6 @@ class SqliteEnum(Enum):
         if protocol is sqlite3.PrepareProtocol:
             return self.name
 
-
 class MediaType(SqliteEnum):
     BOOK = 'BOOK'
     MANGA = 'MANGA'
@@ -157,46 +156,8 @@ class Store:
         """
         
         return self.fetch(query)
-    
-    # def get_recent_goal_alike_logs(self, discord_user_id):
-    #     where_clause = f"discord_user_id={discord_user_id}"""
-
-    #     query = f"""SELECT media_type, SUM(amount) as da, note, created_at FROM logs
-    #     WHERE {where_clause}
-    #     GROUP BY media_type, note
-    #     ORDER BY created_at DESC
-    #     """
-    #     
-    #     cursor = self.conn.cursor()
-    #     cursor.execute(query)
-    #     return cursor.fetchall()
-    
-        # note = '%'+ note +'%'
-
-        # where_clause = f"discord_user_id={discord_user_id} AND note LIKE '{note}' AND created_at BETWEEN '{timeframe[0]}' AND '{timeframe[1]}'"""
-    
-        # query = f"""SELECT * FROM logs
-        # WHERE {where_clause}
-        # ORDER BY created_at DESC
-        # """
-        # 
-        # cursor = self.conn.cursor()
-        # cursor.execute(query)
-        # return cursor.fetchall()
-        
-        # where_clause = f"discord_user_id={discord_user_id} AND created_at BETWEEN '{timeframe[0]}' AND '{timeframe[1]}'"""
-    
-        # query = f"""SELECT media_type, SUM(amount) as da FROM logs
-        # WHERE {where_clause}
-        # GROUP BY media_type
-        # """
-        # 
-        # cursor = self.conn.cursor()
-        # cursor.execute(query)
-        # return cursor.fetchall()
         
     def get_log_streak(self, discord_user_id):
-        #refractor later, goes through all logs could result in big process time
         query = f"""WITH ranked_logs AS (
   SELECT
     discord_user_id,
@@ -245,23 +206,6 @@ LEFT JOIN
   current_streaks ON current_streaks.discord_user_id = streaks.discord_user_id
 GROUP BY
   streaks.discord_user_id;"""
-        # query = f"""SELECT discord_user_id, max(created_at) as ends_at, count(*) as streak
-        # FROM (SELECT *, date(created_at, -(row_number() OVER (PARTITION BY discord_user_id)) || ' days') 
-        # as base_date
-        # FROM (SELECT DISTINCT date(created_at, '0 days') as created_at, discord_user_id
-        # FROM logs WHERE discord_user_id={discord_user_id}
-        # ORDER BY created_at) as points) as points
-        # """
-#         query = f"""WITH cte(discord_user_id, created_at) AS (
-#   SELECT {discord_user_id}, '{now}'
-#   UNION ALL
-#   SELECT discord_user_id, date(c.created_at, '-1 day')
-#   FROM cte c
-#   WHERE EXISTS (SELECT 1 FROM logs t WHERE t.discord_user_id = c.discord_user_id AND t.created_at = date(c.created_at, '-1 day'))
-# )
-# SELECT * 
-# FROM cte 
-# WHERE created_at < (SELECT MAX(created_at) FROM cte); """
         
         return self.fetch(query)
 
@@ -457,7 +401,6 @@ class Set_Goal:
         return self.fetch(query)
     
     def get_date_goals(self, discord_user_id):
-        #where_clause = f"""discord_user_id={discord_user_id} AND freq IS NOT "Daily" AND freq IS NOT NULL"""
         where_clause = f"""discord_user_id={discord_user_id} AND span='DATE' ORDER BY created_at ASC"""
 
         query = f"""
