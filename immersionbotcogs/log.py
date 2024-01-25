@@ -32,53 +32,52 @@ class Log(commands.Cog):
     @app_commands.choices(media_type = [Choice(name="Visual Novel", value="VN"), Choice(name="Manga", value="Manga"), Choice(name="Anime", value="Anime"), Choice(name="Book", value="Book"), Choice(name="Readtime", value="Readtime"), Choice(name="Listening", value="Listening"), Choice(name="Reading", value="Reading")])
     @app_commands.checks.has_role("QA Tester")
     async def log(self, interaction: discord.Interaction, media_type: str, amount: str, name: Optional[str], comment: Optional[str]):
-        
-        await interaction.response.defer(ephemeral=True)
-
         #only allowed to log in #bot-debug, #immersion-logs, DMs
         #DMs not working
         channel = interaction.channel
         if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
-            return await interaction.edit_original_response(content='You can only log in #immersion-log or DMs.')
+            return await interaction.response.send_message(ephemeral=True, content='You can only log in #immersion-log or DMs.')
         
         amount = helpers.amount_time_conversion(media_type, amount)
 
         #introducing upperbound for amount to log for each media_type
         if not amount > 0:
-            return await interaction.edit_original_response(content='Only positive numbers allowed.')
+            return await interaction.response.send_message(ephemeral=True, content='Only positive numbers allowed.')
 
         if media_type == "VN" and amount > 2000000:
-            return await interaction.edit_original_response(content='Only numbers under 2 million allowed.')
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 2 million allowed.')
         
         if media_type == "Manga" and amount > 1000:
-            return await interaction.edit_original_response(content='Only numbers under 1000 allowed.')
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 1000 allowed.')
         
         if media_type == "Anime" and amount > 200:
-            return await interaction.edit_original_response(content='Only numbers under 200 allowed.')
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 200 allowed.')
         
         if media_type == "Book" and amount > 500:
-            return await interaction.edit_original_response(content='Only numbers under 500 allowed.')
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 500 allowed.')
 
         if media_type == "READTIME" and amount > 400:
-            return await interaction.edit_original_response(content='Only numbers under 400 allowed.')
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 400 allowed.')
 
         if media_type == "LISTENING" and amount > 400:
-            return await interaction.edit_original_response(content='Only numbers under 400 allowed.')
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 400 allowed.')
 
         if media_type == "READING" and amount > 2000000:
-            return await interaction.edit_original_response(content='Only numbers under 2 million allowed.')
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 2 million allowed.')
         
         if amount in [float('inf'), float('-inf')]:
-            return await interaction.edit_original_response(content='No infinities allowed.')
+            return await interaction.response.send_message(ephemeral=True, content='No infinities allowed.')
 
         #max comment/name length
         if name != None:
             if len(name) > 150:
-                return await interaction.edit_original_response(content='Only name/comments under 150 characters allowed.')
+                return await interaction.response.send_message(ephemeral=True, content='Only name/comments under 150 characters allowed.')
         elif comment != None:
             if len(comment) > 150:
-                return await interaction.edit_original_response(content='Only name/comments under 150 characters allowed.')
+                return await interaction.response.send_message(ephemeral=True, content='Only name/comments under 150 characters allowed.')
             
+        await interaction.response.defer()
+
         date = interaction.created_at
 
         store_goal = Set_Goal("goals.db")

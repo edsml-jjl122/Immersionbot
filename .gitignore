@@ -2,3 +2,7 @@
 __pycache__
 immersionbotcogs/__pycache__
 .vscode
+goals.db
+prod.db
+japanese.db
+launch_bot.py
