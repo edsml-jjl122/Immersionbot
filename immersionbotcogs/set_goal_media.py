@@ -68,7 +68,6 @@ class Set_Goal_Media(commands.Cog):
         if amount in [float('inf'), float('-inf')]:
             return await interaction.response.send_message(ephemeral=True, content='No infinities allowed.')
         
-
         if span.upper() == "DAY":
             span = "DAY"
             created_at = interaction.created_at
@@ -95,13 +94,14 @@ class Set_Goal_Media(commands.Cog):
                 if end < interaction.created_at:
                     return await interaction.response.send_message(content='''You can't set a goal in the past.''', ephemeral=True)
             except Exception:
-                return await interaction.response.send_message(ephemeral=True, content='Please enter the date in the correct format.')    
+                return await interaction.response.send_message(ephemeral=True, content='Please enter the date in the correct format.')
             else:
                 span = "DATE"
                 if end < created_at:
                     return await interaction.response.send_message(ephemeral=True, content='''You can't set goals for the past.''')
 
-        bool = store.check_goal_exists(interaction.user.id, goal_type, span, media_type.upper(), amount, (helpers.point_message_converter(media_type.upper(), int(amount), name if name else ""))[3])
+        #bool = store.check_goal_exists(interaction.user.id, goal_type, span, media_type.upper(), amount, (helpers.point_message_converter(media_type.upper(), int(amount), name if name else ""))[3])
+        bool = store.check_goal_exists(interaction.user.id, goal_type, span, media_type.upper())
         if bool:
             return await interaction.response.send_message(ephemeral=True, content='You already set this goal.')
 

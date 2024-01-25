@@ -33,53 +33,53 @@ class Log(commands.Cog):
     @app_commands.checks.has_role("QA Tester")
     async def log(self, interaction: discord.Interaction, media_type: str, amount: str, name: Optional[str], comment: Optional[str]):
         
+        await interaction.response.defer(ephemeral=True)
+
         #only allowed to log in #bot-debug, #immersion-logs, DMs
         #DMs not working
         channel = interaction.channel
         if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
-            return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
+            return await interaction.edit_original_response(content='You can only log in #immersion-log or DMs.')
         
         amount = helpers.amount_time_conversion(media_type, amount)
 
         #introducing upperbound for amount to log for each media_type
         if not amount > 0:
-            return await interaction.response.send_message(ephemeral=True, content='Only positive numbers allowed.')
+            return await interaction.edit_original_response(content='Only positive numbers allowed.')
 
         if media_type == "VN" and amount > 2000000:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 2 million allowed.')
+            return await interaction.edit_original_response(content='Only numbers under 2 million allowed.')
         
         if media_type == "Manga" and amount > 1000:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 1000 allowed.')
+            return await interaction.edit_original_response(content='Only numbers under 1000 allowed.')
         
         if media_type == "Anime" and amount > 200:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 200 allowed.')
+            return await interaction.edit_original_response(content='Only numbers under 200 allowed.')
         
         if media_type == "Book" and amount > 500:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 500 allowed.')
+            return await interaction.edit_original_response(content='Only numbers under 500 allowed.')
 
         if media_type == "READTIME" and amount > 400:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 400 allowed.')
+            return await interaction.edit_original_response(content='Only numbers under 400 allowed.')
 
         if media_type == "LISTENING" and amount > 400:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 400 allowed.')
+            return await interaction.edit_original_response(content='Only numbers under 400 allowed.')
 
         if media_type == "READING" and amount > 2000000:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 2 million allowed.')
+            return await interaction.edit_original_response(content='Only numbers under 2 million allowed.')
         
         if amount in [float('inf'), float('-inf')]:
-            return await interaction.response.send_message(ephemeral=True, content='No infinities allowed.')
+            return await interaction.edit_original_response(content='No infinities allowed.')
 
         #max comment/name length
         if name != None:
             if len(name) > 150:
-                return await interaction.response.send_message(ephemeral=True, content='Only name/comments under 150 characters allowed.')
+                return await interaction.edit_original_response(content='Only name/comments under 150 characters allowed.')
         elif comment != None:
             if len(comment) > 150:
-                return await interaction.response.send_message(ephemeral=True, content='Only name/comments under 150 characters allowed.')
+                return await interaction.edit_original_response(content='Only name/comments under 150 characters allowed.')
             
         date = interaction.created_at
-        
-        await interaction.response.defer()
 
         store_goal = Set_Goal("goals.db")
         
@@ -92,7 +92,6 @@ class Log(commands.Cog):
         
         old_weighed_points_mediums = helpers.multiplied_points(old_points)
         old_rank_achievement, old_achievemnt_points, old_next_achievement, old_emoji, old_rank_name, old_next_rank_emoji, old_next_rank_name, id = helpers.check_achievements(interaction.user.id, media_type.upper(), store_prod)
-
 
         store_prod.new_log(617136488840429598, interaction.user.id, media_type.upper(), amount, [title, comment], date)
         
@@ -114,10 +113,8 @@ class Log(commands.Cog):
             goals_description, goal_message = helpers.get_goal_description(dicts=dicts, log_bool=True, store=store_goal, interaction=interaction, media_type=media_type)
         else:
             goals_description = []
-
-        print(goals_description)
         
-        await interaction.edit_original_response(content=f'''{interaction.user.mention} logged {round(amount,2)} {format} {title} {helpers.random_emoji()}\n{msg}\ncurrent streak: **{store_prod.get_log_streak(interaction.user.id)[0].current_streak} days**\n\n{"""__Goal progression:__
+        await interaction.edit_original_response(view=None,content=f'''{interaction.user.mention} logged {round(amount,2)} {format} {title} {helpers.random_emoji()}\n{msg}\ncurrent streak: **{store_prod.get_log_streak(interaction.user.id)[0].current_streak} days**\n\n{"""__Goal progression:__
 """ + str(goals_description) + """
 """ if goals_description else ""}{date.strftime("%B")}: ~~{helpers.millify(sum(i for i, j in list(old_weighed_points_mediums.values())))}~~ → {helpers.millify(sum(i for i, j in list(current_weighed_points_mediums.values())))}\n{("""
 **Next Achievement: **""" + media_type.upper() + " " + new_next_rank_name + " " + new_next_rank_emoji + " in " + str(new_rank_achievement-current_achievemnt_points) + " " + helpers.media_type_format(media_type.upper())) if new_next_rank_name != "Master" else "" if old_next_achievement == new_rank_achievement else """
@@ -128,8 +125,6 @@ class Log(commands.Cog):
             
     @log.autocomplete('name')
     async def log_autocomplete(self, interaction: discord.Interaction, current: str,) -> List[app_commands.Choice[str]]:
-
-        await interaction.response.defer()
         media_type = interaction.namespace['media_type']
         suggestions = []
         url = ''

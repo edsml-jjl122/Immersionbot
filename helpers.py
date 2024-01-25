@@ -82,44 +82,28 @@ def get_time_relevant_logs(goals, relevant_logs):
 
 def span_to_text(span, end_date):
     #match doesn't work on 3.8.10
+    now = datetime.now()
     if span == 'DAILY' or span == 'DAY':
-        return 'end of Day'
+        return 'untill end of Day'
     if span == 'DATE':
         # e.x 28th Jan 2024
-        return datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S.%f%z").strftime("{0} %b %Y").format(ordinal(datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S.%f%z").day))
+        return "untill " + datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S.%f%z").strftime("{0} %b %Y").format(ordinal(datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S.%f%z").day)) + " [DATE]"
     if span == 'WEEKLY':
-        return 'end of Week'
+        if now.replace(tzinfo=pytz.UTC) < datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S.%f%z"):
+            return 'untill end of Week'
+        else:
+            return "untill " + Span_to_datetime(Span("WEEKLY"), [end_date])[1].strftime("{0} %b %Y").format(ordinal(Span_to_datetime(Span("WEEKLY"), [end_date])[1].day)) + " [WEEKLY]"
     if span == 'MONTHLY':
-        return 'end of Month'
-
-def string_to_Datetime(interaction, timeframe):
-    if not timeframe or timeframe.upper() == "MONTH":
-        #Month
-        timeframe = "Monthly"
-        beginn = interaction.created_at.replace(day=1, hour=0, minute=0)
-        end = (beginn.replace(day=28) + timedelta(days=4)) - timedelta(days=(beginn.replace(day=28) + timedelta(days=4)).day)
-
-    elif timeframe.upper() == "WEEK":
-        beginn = (interaction.created_at - timedelta(days=interaction.created_at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-        end = (beginn + timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
-        timeframe = f"""{beginn.strftime("{0}").format(ordinal(beginn.day))}-{end.strftime("{0} %b").format(ordinal(end.day))}"""
-    
-    elif timeframe.upper() == "YEAR":
-        beginn = interaction.created_at.date().replace(month=1, day=1)
-        end = interaction.created_at.date().replace(month=12, day=31)
-        timeframe = f"""{beginn.strftime("%Y")}"""
-    
-    elif timeframe.upper() == "ALL":
-        beginn = interaction.created_at.replace(year=2020)
-        end = interaction.created_at
-        timeframe = f"""All Time"""
-
-    return beginn, end
+        if now.replace(tzinfo=pytz.UTC) < datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S.%f%z"):
+            return 'untill end of Month'
+        else:
+            return "untill " + Span_to_datetime(Span("MONTHLY"), [end_date])[1].strftime("{0} %b %Y").format(ordinal(Span_to_datetime(Span("MONTHLY"), [end_date])[1].day)) + " [MONTHLY]"
 
 def goal_algo(dict, log_bool, store, interaction, media_type):
     goals_description = []
     goal_message = []
     for goals_row in dict["goals"]:
+        until_text = span_to_text(goals_row.span, goals_row.end)
         if bool(dict['logs']):
             points = []
             for log in dict['logs']:
@@ -133,16 +117,15 @@ def goal_algo(dict, log_bool, store, interaction, media_type):
                 elif goals_row.media_type.value == "ANYTHING":
                     points.append(_to_amount(log.media_type.value, log.amount))
             points = sum(points)
-            until_text = span_to_text(goals_row.span, goals_row.end)
             if points >= goals_row.amount:
-                goals_description.append(f"""- ~~{round(points, 2)}/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} (untill {until_text})~~""")
+                goals_description.append(f"""- ~~{round(points, 2)}/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} ({until_text})~~""")
                 if log_bool and not store.goal_already_completed_before(interaction.user.id, goals_row.span, goals_row.media_type, goals_row.text):
                         goal_message.append((interaction.user.mention, media_type_grammer(media_type.upper()), goals_row.amount, media_type_format(media_type.upper()), goals_row.text, random_emoji()))
                         store.goal_completed(interaction.user.id, goals_row.span, goals_row.amount, goals_row.media_type, goals_row.text)
             else:
-                goals_description.append(f"""- {round(points, 2)}/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} (untill {until_text})""")
+                goals_description.append(f"""- {round(points, 2)}/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} ({until_text})""")
         else:
-            goals_description.append(f"""- 0/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} (untill {until_text})""")
+            goals_description.append(f"""- 0/{goals_row.amount} {media_type_format(goals_row.media_type.value)} {goals_row.text} ({until_text})""")
 
     return goals_description, goal_message
 

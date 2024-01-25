@@ -149,7 +149,7 @@ class Store:
     def get_goal_relevant_logs(self, discord_user_id, beginn, end):
         where_clause = f"""discord_user_id={discord_user_id} AND created_at BETWEEN '{beginn}' AND '{end}'"""
     
-        query = f"""SELECT media_type, SUM(amount) as pt, note, created_at FROM logs
+        query = f"""SELECT media_type, SUM(amount) as amount, note, created_at FROM logs
         WHERE {where_clause}
         GROUP BY media_type, note
         ORDER BY created_at DESC
@@ -411,13 +411,13 @@ class Set_Goal:
         
         return self.fetch(query)[0]
     
-    def check_goal_exists(self, discord_user_id, goal_type, span, media_type, amount, text):
-        print(discord_user_id, goal_type, span, media_type, text)
+    def check_goal_exists(self, discord_user_id, goal_type, span, media_type):
+        print(discord_user_id, goal_type, span, media_type)
         query = f"""SELECT EXISTS(
-            SELECT * FROM goals WHERE discord_user_id=? AND goal_type=? AND span=? AND media_type=? AND amount=? AND text LIKE ?
+            SELECT * FROM goals WHERE discord_user_id=? AND goal_type=? AND span=? AND media_type=?
             ) AS didTry"""
         cursor = self.conn.cursor()
-        cursor.execute(query, [discord_user_id, goal_type, span, media_type, amount, text])
+        cursor.execute(query, [discord_user_id, goal_type, span, media_type])
         return cursor.fetchall()[0][0] == 1
     
     def goal_already_completed_before(self, discord_user_id, goal_type, media_type, text):
