@@ -18,8 +18,6 @@ class Leaderboard(commands.Cog):
         self.myguild = self.bot.get_guild(617136488840429598)
         
     @app_commands.command(name='leaderboard', description=f'Leaderboard of immersion.')
-    @app_commands.describe(timeframe='''Span of logs used.''')
-    @app_commands.choices(timeframe = [Choice(name="Monthly", value="Monthly"), Choice(name="All Time", value="All Time"), Choice(name="Weekly", value="Weekly"), Choice(name="Yearly", value="Yearly")])
     @app_commands.choices(media_type = [Choice(name="Visual Novels", value="VN"), Choice(name="Manga", value="MANGA"), Choice(name="Anime", value="ANIME"), Choice(name="Book", value="BOOK"), Choice(name="Readtime", value="READTIME"), Choice(name="Listening", value="LISTENING"), Choice(name="Reading", value="READING")])
     @app_commands.describe(timeframe='''DEFAULT=MONTH; Week, Month, Year, All, [year-month-day] or [year-month-day-year-month-day]''')
     @app_commands.checks.has_role("QA Tester")
@@ -31,27 +29,27 @@ class Leaderboard(commands.Cog):
         
         if not media_type:
             media_type = None
-        
+
         if not timeframe or timeframe.upper() == "MONTH":
             #Month
-            title = "Monthly Leaderboard"
+            title = "Monthly"
             beginn = interaction.created_at.replace(day=1, hour=0, minute=0)
             end = (beginn.replace(day=28) + timedelta(days=4)) - timedelta(days=(beginn.replace(day=28) + timedelta(days=4)).day)
 
         elif timeframe.upper() == "WEEK":
             beginn = (interaction.created_at - timedelta(days=interaction.created_at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
             end = (beginn + timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
-            title = f"""{beginn.strftime("{0}").format(helpers.ordinal(beginn.day))}-{end.strftime("{0} %b").format(helpers.ordinal(end.day))} Leaderboard"""
+            title = f"""{beginn.strftime("{0}").format(helpers.ordinal(beginn.day))}-{end.strftime("{0} %b").format(helpers.ordinal(end.day))}"""
         
         elif timeframe.upper() == "YEAR":
             beginn = interaction.created_at.date().replace(month=1, day=1)
             end = interaction.created_at.date().replace(month=12, day=31)
-            title = f"""{beginn.strftime("%Y")} Leaderboard"""
+            title = f"""{beginn.strftime("%Y")}"""
         
         elif timeframe.upper() == "ALL":
             beginn = interaction.created_at.replace(year=2020)
             end = interaction.created_at
-            title = f"""All Time Leaderboard"""
+            title = f"""All Time"""
 
         elif timeframe.upper() not in TIMEFRAMES:
             try:
@@ -59,7 +57,7 @@ class Leaderboard(commands.Cog):
                 if len(timeframe.split('-')) == 6:
                     beginn = interaction.created_at.replace(year=int(dates[0]), month=int(dates[1]), day=int(dates[2]))
                     end = interaction.created_at.replace(year=int(dates[3]), month=int(dates[4]), day=int(dates[5]))
-                    title = f"""{beginn.strftime("{0}").format(helpers.ordinal(beginn.day))}-{end.strftime("{0} %b").format(helpers.ordinal(end.day))} Leaderboard"""
+                    title = f"""{beginn.strftime("{0}").format(helpers.ordinal(beginn.day))}-{end.strftime("{0} %b").format(helpers.ordinal(end.day))}"""
                     if beginn > end:
                         return await interaction.response.send_message(content='You switched up the dates.', ephemeral=True)
                 elif len(timeframe.split('-')) == 3:
@@ -76,21 +74,8 @@ class Leaderboard(commands.Cog):
         
         store = Store(_DB_NAME)
         leaderboard = store.get_leaderboard(interaction.user.id, (beginn, end), media_type)
-        user_rank = [rank for uid, total, rank in leaderboard if uid == interaction.user.id]
-        user_rank = user_rank and user_rank[0]
-        
-        async def leaderboard_row(user_id, points, rank):
-            ellipsis = '...\n' if user_rank and rank == (user_rank-1) and rank > 21 else ''
-            try:
-                user = await self.bot.fetch_user(user_id)
-                display_name = user.display_name if user else 'Unknown'
-                amount = helpers._to_amount(media_type, points) if media_type else points
-            except Exception:
-                display_name = 'Unknown'
-            return f'{ellipsis}**{helpers.make_ordinal(rank)} {display_name}**: {helpers.millify(amount)}'
 
-        leaderboard_desc = '\n'.join([await leaderboard_row(*row) for row in leaderboard])
-        title = title + (" for " + media_type if media_type else "") + ((" (" + helpers.media_type_format(media_type) + ")") if media_type else " (pts)")
+        title, leaderboard_desc = await helpers.get_leaderboard(self.bot, leaderboard, interaction.user, media_type, title)
         embed = discord.Embed(title=title, description=leaderboard_desc)
         
         await interaction.edit_original_response(embed=embed)

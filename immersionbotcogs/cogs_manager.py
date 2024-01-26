@@ -5,7 +5,7 @@ import asyncio
 import os
 import help_text
 import datetime, time
-from constants import ALLOWED_CHANNELS
+from constants import UNALLOWED_CHANNELS
 start_time = time.time()
 
 class BotManager(commands.Cog):
@@ -49,7 +49,7 @@ class BotManager(commands.Cog):
     @app_commands.checks.has_role("Moderator")
     async def check_jp_channels(self, interaction: discord.Interaction):
         my_view = CogSelectView(timeout=1800)
-        for channel_id in ALLOWED_CHANNELS:
+        for channel_id in UNALLOWED_CHANNELS:
             cog_button = ShowButton(self.bot, label=self.myguild.get_channel(channel_id).name)
             my_view.add_item(cog_button)
         await interaction.response.send_message(view=my_view, ephemeral=True)

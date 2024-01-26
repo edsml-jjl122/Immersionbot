@@ -47,7 +47,7 @@ def Span_to_datetime(Span, list):
 
     now = datetime.now()
     if Span.value == "DAILY":
-        # start of today, end of today
+        # start of today, end of today 
         return (now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC), now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC) + timedelta(days=1))
     elif Span.value == "DAY":
         # start of today, end of today

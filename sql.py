@@ -35,7 +35,7 @@ class Store:
         self.conn.row_factory = namedtuple_factory
     
     def fetch(self, query):
-        print(query)
+        # print(query)
         cursor = self.conn.cursor()
         cursor.execute(query)
         return cursor.fetchall()
