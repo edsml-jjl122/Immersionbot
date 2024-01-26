@@ -32,6 +32,25 @@ class Span(Enum):
     WEEKLY = "WEEKLY"
     MONTHLY = "MONTHLY"
 
+async def get_leaderboard(bot, leaderboard, command_user, media_type, title):
+    user_rank = [rank for uid, total, rank in leaderboard if uid == command_user.id]
+    user_rank = user_rank and user_rank[0]
+    
+    async def leaderboard_row(user_id, points, rank):
+        ellipsis = '...\n' if user_rank and rank == (user_rank-1) and rank > 21 else ''
+        try:
+            user = await bot.fetch_user(user_id)
+            display_name = user.display_name if user else 'Unknown'
+            amount = _to_amount(media_type, points) if media_type else points
+        except Exception:
+            display_name = 'Unknown'
+        return f'{ellipsis}**{make_ordinal(rank)} {display_name}**: {millify(amount)}'
+
+    leaderboard_desc = '\n'.join([await leaderboard_row(*row) for row in leaderboard])
+    title = title + (" " + media_type if media_type else "") + "Leaderboard" ((" (" + media_type_format(media_type) + ")") if media_type else " (pts)")
+
+    return title, leaderboard_desc
+
 import re
 def check_japanese_contents(content, jp_REGEX):
     characters = re.findall(jp_REGEX, content)
@@ -47,7 +66,7 @@ def Span_to_datetime(Span, list):
 
     now = datetime.now()
     if Span.value == "DAILY":
-        # start of today, end of today 
+        # start of today, end of today
         return (now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC), now.replace(hour=0, minute=0, second=0, tzinfo=pytz.UTC) + timedelta(days=1))
     elif Span.value == "DAY":
         # start of today, end of today
