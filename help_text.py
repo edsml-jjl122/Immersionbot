@@ -13,7 +13,7 @@ Multipliers for immersion = {
 }
 
 For feedback: @timm04
-Github: https://github.com/themoeway/immersion-bot```""",
+Github: https://github.com/themoeway/Immersionbot```""",
 "achievements": """```py
 /achievements
 
