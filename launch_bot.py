@@ -74,4 +74,4 @@ class MyBot(commands.Bot):
         print(f"Synced commands to guild with id {617136488840429598}.")
 
 bot = MyBot()
-bot.run("MTE5MjkwMTQwMzUxODE4MTUwNw.GBRPvA.ZAYR9KFYgA5Q1Vs-RKA_uREwF6lkhK6Cbt7M8o")
+bot.run("MTE5MjkwMTQwMzUxODE4MTUwNw.GtmyJY.tOHf3irMwgpoW_6rNgeJ8O7ZI-qqWstLanlXKs")

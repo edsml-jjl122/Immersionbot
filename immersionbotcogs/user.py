@@ -42,7 +42,7 @@ class User(commands.Cog):
     async def on_ready(self):
         self.myguild = self.bot.get_guild(617136488840429598)
     
-    async def generate_trend_graph(self, timeframe, interaction, logs):
+    async def generate_trend_graph(self, timeframe, interaction, logs, user):
 
         def daterange(start_date, end_date):
                 for n in range(int((end_date - start_date).days)):
@@ -107,22 +107,22 @@ class User(commands.Cog):
         ax.legend(df.columns)
 
         plt.xticks(df.index, fontsize=20, rotation=45, horizontalalignment='right')
-        fig.savefig(f"{interaction.user.id}_overview_chart.png")
+        fig.savefig(f"{user.id}_overview_chart.png")
     
     async def create_embed(self, timeframe, interaction, weighed_points_mediums, logs, user, store):
         embed = discord.Embed(title=f'{timeframe} Immersion Overview')
         embed.add_field(name='**User**', value=user.display_name)
         embed.add_field(name='**Timeframe**', value=timeframe)
         embed.add_field(name='**Points**', value=helpers.millify(sum(i for i, j in list(weighed_points_mediums.values()))))
-        embed.add_field(name='**Longest streak:**', value=f'''{store.get_log_streak(interaction.user.id)[0].longest_streak} days''')
-        embed.add_field(name='**Current streak:**', value=f'''{store.get_log_streak(interaction.user.id)[0].current_streak} days''')
+        embed.add_field(name='**Longest streak:**', value=f'''{store.get_log_streak(user.id)[0].longest_streak} days''')
+        embed.add_field(name='**Current streak:**', value=f'''{store.get_log_streak(user.id)[0].current_streak} days''')
         amounts_by_media_desc = '\n'.join(f'{key}: {helpers.millify(weighed_points_mediums[key][1])} {helpers.media_type_format(key)} → {helpers.millify(weighed_points_mediums[key][0])} pts' for key in weighed_points_mediums)
         embed.add_field(name='**Breakdown**', value=amounts_by_media_desc or 'None', inline=False)
         
-        await self.generate_trend_graph(timeframe, interaction, logs)
-        file = discord.File(fr'''{[file for file in os.listdir() if file.endswith('_overview_chart.png')][0]}''')
-        filename = f"{interaction.user.id}_overview_chart.png"
-        embed.set_image(url=f"attachment://{filename}")
+        await self.generate_trend_graph(timeframe, interaction, logs, user)
+        file = discord.File(f"{user.id}_overview_chart.png", filename=f"{user.id}_overview_chart.png")
+        filename = f"{user.id}_overview_chart.png"
+        embed.set_image(url=f"attachment://{user.id}_overview_chart.png")
         
         return embed, file, filename
 
@@ -179,16 +179,18 @@ class User(commands.Cog):
             except Exception:
                 return await interaction.response.send_message(content='Enter a valid date. [Year-Month-day] e.g 2023-12-24', ephemeral=True)
 
+        await interaction.response.defer()
+
         store = Store(_DB_NAME)
         logs = store.get_logs_by_user(user.id, media_type, (beginn, end), name)
         if logs == []:
             return await interaction.edit_original_response(content='No logs were found.')
 
         store_jp = Set_jp(_JP_DB)
-        weighed_points_mediums = helpers.multiplied_points(logs + store_jp.get_jp(interaction.user.id))
+        weighed_points_mediums = helpers.multiplied_points(logs + store_jp.get_jp(user.id))
         embed, file, filename = await self.create_embed(timeframe, interaction, weighed_points_mediums, logs, user, store)
     
-        await interaction.response.send_message(embed=embed, file=file)
+        await interaction.edit_original_response(embed=embed, file=file)
 
         await asyncio.sleep(1)
 
