@@ -2,7 +2,7 @@ from discord.ext import commands
 from sql import Set_jp
 import helpers
 import re
-from constants import ALLOWED_CHANNELS
+from constants import UNALLOWED_CHANNELS
 
 jp_REGEX = re.compile(r"[一-龠ぁ-ゔァ-ヴーａ-ｚＡ-Ｚ０-９々〆〤ヶ]+|[ぁ-ゔ]+|[ァ-ヴー]+|[々〆〤ヶ]+[]+] +/u")
 
@@ -18,7 +18,7 @@ class Japanese_tracker(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         channel = message.channel
-        if channel.id in ALLOWED_CHANNELS:
+        if channel.id in UNALLOWED_CHANNELS:
             return
         
         if message.author.bot:
