@@ -32,22 +32,34 @@ class Span(Enum):
     WEEKLY = "WEEKLY"
     MONTHLY = "MONTHLY"
 
+def get_title(title, media_type):
+    if media_type:
+        return f'''{title} {media_type} Leaderboard ({media_type_format(media_type)})'''
+    else:
+        return f'''{title} Leaderboard (pts)'''
+
+import asyncio
+
 async def get_leaderboard(bot, leaderboard, command_user, media_type, title):
     user_rank = [rank for uid, total, rank in leaderboard if uid == command_user.id]
     user_rank = user_rank and user_rank[0]
-    
+
+    async def get_user(id):
+        user = bot.get_user(id)
+        return user or await bot.fetch_user(id)
+
     async def leaderboard_row(user_id, points, rank):
         ellipsis = '...\n' if user_rank and rank == (user_rank-1) and rank > 21 else ''
         try:
-            user = await bot.fetch_user(user_id)
+            user = await get_user(user_id)
             display_name = user.display_name if user else 'Unknown'
             amount = _to_amount(media_type, points) if media_type else points
         except Exception:
             display_name = 'Unknown'
         return f'{ellipsis}**{make_ordinal(rank)} {display_name}**: {millify(amount)}'
 
-    leaderboard_desc = '\n'.join([await leaderboard_row(*row) for row in leaderboard])
-    title = title + (" " + media_type if media_type else "") + "Leaderboard" ((" (" + media_type_format(media_type) + ")") if media_type else " (pts)")
+    leaderboard_desc = '\n'.join(await asyncio.gather(*[leaderboard_row(*row) for row in leaderboard]))
+    title = get_title(title, media_type)
 
     return title, leaderboard_desc
 
