@@ -25,8 +25,7 @@ class CustomCommandTree(discord.app_commands.CommandTree):
         if isinstance(error, discord.app_commands.errors.MissingRole):
             return await interaction.response.send_message(content='''Role 'Moderator' is required to run this command.''', ephemeral=True)
         
-        # if isinstance(error, discord.app_commands.errors.CommandInvokeError):
-        #     return await interaction.response.send_message(content='''Something went wrong, try again please.''', ephemeral=True)
+        #add interaction error 404 handling
 
         command = interaction.command
         if command is not None:
