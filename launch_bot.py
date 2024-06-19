@@ -20,12 +20,11 @@ class CustomCommandTree(discord.app_commands.CommandTree):
         error_type, value, tb = sys.exc_info()
         traceback_string = '\n'.join(traceback.format_list(traceback.extract_tb(tb)))
         error_string = f"```{str(value)}\n\n{traceback_string}```"
+        #await interaction.channel.send(content='<@250351201923629058>')
         await self.bot.bot_owner_dm_channel.send(error_string)
 
         if isinstance(error, discord.app_commands.errors.MissingRole):
             return await interaction.response.send_message(content='''Role 'Moderator' is required to run this command.''', ephemeral=True)
-        
-        #add interaction error 404 handling
 
         command = interaction.command
         if command is not None:
@@ -40,7 +39,7 @@ class MyBot(commands.Bot):
     
     def __init__(self) -> None:
         super().__init__(
-            command_prefix = "ankislave.", 
+            command_prefix = "ankislave.",
             intents = discord.Intents.all(),
             tree_cls=CustomCommandTree)
         
@@ -70,7 +69,7 @@ class MyBot(commands.Bot):
         
         print(f"Logged in as\n\tName: {self.user.name}\n\tID: {self.user.id}")
         print(f"Running pycord version: {discord.__version__}")
-        print(f"Synced commands to guild with id {617136488840429598}.")
+        print(f"Synced commands to guild with id {947813835715256390}.")
 
 bot = MyBot()
-bot.run("MTE5MjkwMTQwMzUxODE4MTUwNw.GtmyJY.tOHf3irMwgpoW_6rNgeJ8O7ZI-qqWstLanlXKs")
+bot.run("enter token here")
