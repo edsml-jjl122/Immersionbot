@@ -5,12 +5,13 @@ from typing import Optional
 from discord import app_commands
 from discord.app_commands import Choice
 from typing import List
-from sql import Store
-import helpers
+from modals.sql import Store
+import modals.helpers as helpers
 import aiohttp
 import asyncio
-from constants import TIMEFRAMES
+from modals.constants import TIMEFRAMES, tmw_id, _DB_NAME, _IMMERSION_CODES, _MULTIPLIERS
 import logging
+import json
 
 log = logging.getLogger(__name__)
 
@@ -21,18 +22,25 @@ class Logs_Display(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.myguild = self.bot.get_guild(617136488840429598)
+        self.myguild = self.bot.get_guild(tmw_id)
 
     @app_commands.command(name='logs', description=f'View your logs')
     @app_commands.describe(name='''You can use vndb IDs and titles for VN and Anilist codes for Anime and Manga''')
     @app_commands.choices(media_type = [Choice(name="Visual Novel", value="VN"), Choice(name="Manga", value="Manga"), Choice(name="Anime", value="Anime"), Choice(name="Book", value="Book"), Choice(name="Readtime", value="Readtime"), Choice(name="Listening", value="Listening"), Choice(name="Reading", value="Reading")])
     @app_commands.describe(timeframe='''DEFAULT=MONTH; Week, Month, Year, All, [year-month-day] or [year-month-day-year-month-day]''')
-    @app_commands.checks.has_role("QA Tester")
     async def logs(self, interaction: discord.Interaction, user: Optional[discord.User], timeframe: Optional[str], media_type: Optional[str], name: Optional[str]):
         
         channel = interaction.channel
         if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
-            return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
+            return await interaction.response.send_message(content='This command is only usable in #immersion-log or DMs.',ephemeral=True)
+        
+        bool, msg = helpers.check_maintenance()
+        if bool:
+            return await interaction.response.send_message(content=f'In maintenance: {msg}', ephemeral=True)
+        
+        bool, msg = helpers.check_maintenance()
+        if bool:
+            return await interaction.response.send_message(content=f'In maintenance: {msg}', ephemeral=True)
         
         if not user:
             user = interaction.user
@@ -43,9 +51,25 @@ class Logs_Display(commands.Cog):
         if not name:
             name = None
 
-        if name and media_type:
-            calc_amount, format, msg, title = helpers.point_message_converter(media_type.upper(), 0, name)
+        multipliers_path = _MULTIPLIERS
+        try:
+            with open(multipliers_path, "r") as file:
+                MULTIPLIERS = json.load(file)
+        except FileNotFoundError:
+            MULTIPLIERS = {}
 
+        if name and media_type:
+            codes_path = _IMMERSION_CODES
+            try:
+                with open(codes_path, "r") as file:
+                    codes = json.load(file)
+            except FileNotFoundError:
+                codes = {}
+            else:
+                calc_amount, format, msg, title = helpers.point_message_converter(media_type.upper(), 0, name, MULTIPLIERS, codes, _IMMERSION_CODES)
+        else:
+            title = [""]
+            
         if not timeframe or timeframe.upper() == "MONTH":
             #Month
             beginn = interaction.created_at.replace(day=1, hour=0, minute=0)
@@ -82,19 +106,30 @@ class Logs_Display(commands.Cog):
                 return await interaction.response.send_message(content='Enter a valid date. [Year-Month-day] e.g 2023-12-24', ephemeral=True)
 
         await interaction.response.defer()
-
-        store_prod = Store("prod.db")
-        print(user.id, media_type, [beginn, end], title if name else name)
-        logs = store_prod.get_logs_by_user(user.id, media_type, [beginn, end], title if name else name)
+        media_types = ["VN", "ANIME", "MANGA", "READING", "READTIME", "BOOK", "LISTENING", "None"]
+        store_prod = Store(_DB_NAME)
+    
+        logs = store_prod.get_logs_by_user(user.id, media_type, [beginn, end], title[0] if name else name)
+        codes_path = _IMMERSION_CODES
+        try:
+            with open(codes_path, "r") as file:
+                codes = json.load(file)
+        except FileNotFoundError:
+            codes = {}
         message_logs = []
         for log in logs:
-            try:
-                note = eval(log.note)[1]
-            except Exception:
-                note = ""
-            if note == None:
-                note = ""
-            message_logs.append((f'{log.created_at.strftime("%Y-%m-%d")}: {log.media_type.value.upper()} {log.amount} {helpers.media_type_format(log.media_type.value)} → {round(helpers._to_amount(log.media_type.value, log.amount), 5)}pts: {note}'))
+            # try:
+            #     note = eval(log.note)[1]
+            # except Exception:
+            #     note = ""
+            # if note == None:
+            #     note = ""
+            title = helpers.get_name_of_immersion(log.media_type.value.upper(), log.title, codes, codes_path)[1]
+            if title in media_types:
+                title = " "
+            else:
+                title = f' {title} '
+            message_logs.append((f'{log.created_at.strftime("%Y-%m-%d")}: {log.media_type.value.upper()} {log.amount}{title}{helpers.media_type_format(log.media_type.value)} → {round(helpers._to_amount(log.media_type.value, log.amount, MULTIPLIERS), 5)}pts: {log.note}'))
 
         if message_logs:
             max_logs = 20

@@ -7,8 +7,11 @@ from datetime import timedelta
 import pytz
 from discord.ui import Select
 from discord import app_commands
-from sql import Store, Set_Goal
-import helpers
+from modals.sql import Store, Set_Goal
+import modals.helpers as helpers
+import json
+from modals.constants import _GOAL_DB, _IMMERSION_CODES, _MULTIPLIERS
+from modals.goal import Goal
 
 class MyView(discord.ui.View):
     def __init__(self, *, timeout: Optional[float] = 900, data, beginning_index: int, end_index: int):
@@ -80,34 +83,43 @@ class Goals_manager(commands.Cog):
         self.batch_update.start()
         
     @app_commands.command(name='delete_goal', description=f'Delete an immersion goal.')
-    @app_commands.checks.has_role("QA Tester")
     async def delete_goal(self, interaction: discord.Interaction):
         
-        channel = interaction.channel
-        if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
-            return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
-
-        store_goal = Set_Goal("goals.db")
+        # channel = interaction.channel
+        # if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
+        #     return await interaction.response.send_message(content='You can only delete your goals in #immersion-log or DMs.',ephemeral=True)
+        
+        bool, msg = helpers.check_maintenance()
+        if bool:
+            return await interaction.response.send_message(content=f'In maintenance: {msg.maintenance_msg}', ephemeral=True)
+        
+        store_goal = Set_Goal(_GOAL_DB)
         goals = store_goal.get_goals(interaction.user.id)
         if not goals:
             return await interaction.response.send_message(ephemeral=True, content='No goals found. Set goals with ``/set_goal``.')
 
-        store_prod = Store("prod.db")
-        beginn = goals[0].created_at
-        end = interaction.created_at + timedelta(hours=26)
-
-        relevant_logs = store_prod.get_goal_relevant_logs(interaction.user.id, beginn, end)
-
-        dicts = helpers.get_time_relevant_logs(goals, relevant_logs)
-        goals, goal_message = helpers.get_goal_description(dicts=dicts, log_bool=False, store=store_goal, interaction=interaction, media_type=None)
-
-        raw_goals = store_goal.get_goals(interaction.user.id)
+        goals_description = []
+        codes_path = _IMMERSION_CODES
+        try:
+            with open(codes_path, "r") as file:
+                codes = json.load(file)
+        except FileNotFoundError:
+            codes = {}
+        for goal_row in goals:
+            try:
+                updated_date = f'<t:{int(datetime.strptime(goal_row.end, "%Y-%m-%d %H:%M:%S.%f%z").timestamp())}:R>'
+            except Exception:
+                updated_date = goal_row.end
+            goal_title = helpers.get_name_of_immersion(goal_row.media_type.value, goal_row.text, codes, codes_path)
+            if goal_row.current_amount < goal_row.amount:
+                    goals_description.append(f"""- {goal_row.current_amount}/{goal_row.amount} {helpers.media_type_format(goal_row.media_type.value) if goal_row.goal_type != "POINTS" else "points"} of [{goal_title[1]}]({goal_title[2]}) ({updated_date})""")
+            else:
+                goals_description.append(f"""~~- {goal_row.current_amount}/{goal_row.amount} {helpers.media_type_format(goal_row.media_type.value) if goal_row.goal_type != "POINTS" else "points"} of [{goal_title[1]}]({goal_title[2]}) ({updated_date})~~""")
 
         results = []
-        for i, goal in enumerate(zip(goals.split('\n'), raw_goals)):
+        for i, goal in enumerate(zip(goals_description, goals)):
             results.append((i + 1, goal, goal[1]))
 
-        print(results)
         myembed = discord.Embed(title=f'Select a goal to delete:')
         for result in results[0:5]:
             myembed.add_field(name=f'{result[0]}. goal',value=f'{result[1][0]}', inline=False)
@@ -124,7 +136,7 @@ class Goals_manager(commands.Cog):
             item = discord.SelectOption(label=f'{result[0]}')
             options.append(item)
             
-        select = Select(min_values = 1, max_values = 1, options=options)   
+        select = Select(min_values = 1, max_values = 1, options=options)
         async def my_callback(interaction):
             relevant_result = select.view.data[(int(select.values[0])-1) + int(select.view.beginning_index)]
             store_goal.delete_goal(interaction.user.id, relevant_result[2].media_type.value, relevant_result[2].amount, relevant_result[2].span)        
@@ -136,9 +148,9 @@ class Goals_manager(commands.Cog):
         view.add_item(select)
         await interaction.response.send_message(embed=myembed, view=view, ephemeral=True)
 
-    @tasks.loop(hours=25)
+    @tasks.loop(hours=24)
     async def batch_update(self):
-        store = Set_Goal("goals.db")
+        store = Set_Goal(_GOAL_DB)
         goals = store.get_all_goals()
         for goal in goals:
             if goal.span == "DAY" or goal.span == "DATE":
@@ -146,6 +158,20 @@ class Goals_manager(commands.Cog):
                     store.delete_goal(goal.discord_user_id, goal.media_type.value, goal.amount, goal.span)
                     store.delete_completed(goal.discord_user_id, goal.span, goal.amount, goal.media_type.value, goal.text)
                     continue
+                else:
+                    continue
+            elif goal.span == "WEEKLY" or goal.span == "DAILY":
+                if pytz.utc.localize(datetime.now()) > datetime.strptime(goal.end, "%Y-%m-%d %H:%M:%S.%f%z").replace(tzinfo=pytz.UTC):
+                    if goal.span == "DAILY":
+                        end = pytz.utc.localize(datetime.now()) + timedelta(days=1)
+                        end.replace(hour=0, minute=0, second=0, microsecond=0)
+                    else:
+                        now = pytz.utc.localize(datetime.now())
+                        created_at = now - timedelta(days=now.weekday())
+                        end = created_at + timedelta(days=6)
+                    print(end)
+                    store.update_end(Goal(goal.discord_user_id, goal.goal_type, goal.media_type, goal.current_amount, goal.amount, goal.text, goal.span, goal.created_at, goal.end), end)
+                    store.update_amount(Goal(goal.discord_user_id, goal.goal_type, goal.media_type, goal.current_amount, goal.amount, goal.text, goal.span, goal.created_at, goal.end), 0)
                 else:
                     continue
 

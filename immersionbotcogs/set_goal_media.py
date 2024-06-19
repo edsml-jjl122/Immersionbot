@@ -5,14 +5,19 @@ from datetime import timedelta
 from typing import Optional
 from discord import app_commands
 from discord.app_commands import Choice
-from sql import Set_Goal
+from modals.sql import Set_Goal, Store
 import time
-import helpers
+import modals.helpers as helpers
 import aiohttp
 from typing import List
 import asyncio
 import logging
-
+from modals.goal import Goal
+from modals.log_constructor import Log_constructor
+from modals.sql import MediaType
+from modals.constants import tmw_id, _GOAL_DB, _IMMERSION_CODES, _MULTIPLIERS, _DB_NAME
+import json
+from datetime import datetime
 #############################################################
 
 log = logging.getLogger(__name__)
@@ -26,55 +31,58 @@ class Set_Goal_Media(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.myguild = self.bot.get_guild(617136488840429598)
+        self.myguild = self.bot.get_guild(tmw_id)
     
     @app_commands.command(name='set_goal_media', description=f'Set daily immersion log goals')
     @app_commands.describe(amount='''Episode to watch, characters or pages to read. Time to read/listen in [hr:min] or [min] for example '1.30' or '25'.''')
     @app_commands.choices(media_type = [Choice(name="Visual Novel", value="VN"), Choice(name="Manga", value="Manga"), Choice(name="Anime", value="Anime"), Choice(name="Book", value="Book"), Choice(name="Readtime", value="Readtime"), Choice(name="Listening", value="Listening"), Choice(name="Reading", value="Reading")])
     @app_commands.describe(name='''You can use vndb IDs for VN and Anilist codes for Anime, Manga and Light Novels''')
     @app_commands.describe(span='''[Day = Till the end of today], [Daily = Everyday], [Date = Till a certain date ([year-month-day] Example: '2022-12-29')]''')
-    @app_commands.checks.has_role("QA Tester")
     async def set_goal_media(self, interaction: discord.Interaction, media_type: str, amount: str, name: Optional[str], span: str):
-        store = Set_Goal("goals.db")
-        goal_type = "MEDIA" if not name else "SPECIFIC"
         
-        amount = helpers.amount_time_conversion(media_type=media_type, amount=amount)
-
-        if not amount > 0:
-            await interaction.response.defer()
-            return await interaction.response.send_message(ephemeral=True, content='Only positive numers allowed.')
-
-        if media_type == "VN" and amount > 2000000:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 2 million allowed.')
+        bool, msg = helpers.check_maintenance()
+        if bool:
+            return await interaction.response.send_message(content=f'In maintenance: {msg}', ephemeral=True)
         
-        if media_type == "Manga" and amount > 1000:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 1000 allowed.')
+        amount = helpers.amount_time_conversion(media_type, amount)
+        if not amount.bool:
+            return await interaction.response.send_message(ephemeral=True, content='Enter a valid number.')
         
-        if media_type == "Anime" and amount > 200:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 200 allowed.')
+        #introducing upperbound for amount to log for each media_type
+        if not amount.value > 0:
+            return await interaction.response.send_message(ephemeral=True, content='Only positive numbers allowed.')
+
+        if media_type == "VN" and amount.value > 4000000:
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 4 million allowed.')
         
-        if media_type == "Book" and amount > 500:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 500 allowed.')
-
-        if media_type == "READTIME" and amount > 400:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 400 allowed.')
-
-        if media_type == "LISTENING" and amount > 400:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 400 allowed.')
-
-        if media_type == "READING" and amount > 2000000:
-            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 2 million allowed.')
+        if media_type == "Manga" and amount.value > 10000:
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 10000 allowed.')
         
-        if amount in [float('inf'), float('-inf')]:
+        if media_type == "Anime" and amount.value > 20000:
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 20000 allowed.')
+        
+        if media_type == "Book" and amount.value > 10000:
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 10000 allowed.')
+
+        if media_type == "Readtime" and amount.value > 40000:
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 40000 allowed.')
+
+        if media_type == "Listening" and amount.value > 40000:
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 40000 allowed.')
+
+        if media_type == "Reading" and amount.value > 4000000:
+            return await interaction.response.send_message(ephemeral=True, content='Only numbers under 4 million allowed.')
+        
+        if amount.value in [float('inf'), float('-inf')]:
             return await interaction.response.send_message(ephemeral=True, content='No infinities allowed.')
         
         if span.upper() == "DAY":
             span = "DAY"
-            created_at = interaction.created_at
+            created_at = interaction.created_at.replace(hour=0, minute=0, second=0)
             end = interaction.created_at.replace(hour=0, minute=0, second=0) + timedelta(days=1)
         elif span.upper() == "DAILY":
             span = "DAILY"
-            created_at = interaction.created_at
+            created_at = interaction.created_at.replace(hour=0, minute=0, second=0)
             end = interaction.created_at + timedelta(days=1)
         elif span.upper() == "WEEKLY":
             span = "WEEKLY"
@@ -100,17 +108,54 @@ class Set_Goal_Media(commands.Cog):
                 if end < created_at:
                     return await interaction.response.send_message(ephemeral=True, content='''You can't set goals for the past.''')
 
-        #bool = store.check_goal_exists(interaction.user.id, goal_type, span, media_type.upper(), amount, (helpers.point_message_converter(media_type.upper(), int(amount), name if name else ""))[3])
-        bool = store.check_goal_exists(interaction.user.id, goal_type, span, media_type.upper())
+        store = Set_Goal(_GOAL_DB)
+        goal_type = "MEDIA" if not name else "SPECIFIC"
+        bool = store.check_goal_exists(interaction.user.id, goal_type, span, media_type.upper(), name)
         if bool:
             return await interaction.response.send_message(ephemeral=True, content='You already set this goal.')
 
         if len(store.get_goals(interaction.user.id)) > 10:
             return await interaction.response.send_message(ephemeral=True, content='''You can't set more than 10 goals. To delete a goal do ```/delete_goal``''')
-
-        store.new_goal(interaction.user.id, "MEDIA", media_type.upper(), amount, (helpers.point_message_converter(media_type.upper(), amount, name if name else ""))[3], span, created_at, end)
-
-        await interaction.response.send_message(ephemeral=True, content=f'''## Set {goal_type} goal as {span} goal\n- {amount} {helpers.media_type_format(media_type.upper())} {(helpers.point_message_converter(media_type.upper(), amount, name))[3]}\n\nUse ``/goals`` to view your goals for <t:{int(time.mktime((interaction.created_at.replace(hour=0, minute=0, second=0, microsecond=0)).timetuple()))}:D>''')
+        if not name:
+            name = ""
+            
+        store.new_goal(interaction.user.id, goal_type, media_type.upper(), 0, amount.value, name, span, created_at, end)
+        
+        multipliers_path = _MULTIPLIERS
+        try:
+            with open(multipliers_path, "r") as file:
+                MULTIPLIERS = json.load(file)
+        except FileNotFoundError:
+            MULTIPLIERS = {}
+            
+        codes_path = _IMMERSION_CODES
+        try:
+            with open(codes_path, "r") as file:
+                codes = json.load(file)
+        except FileNotFoundError:
+            codes = {}
+        store_log = Store(_DB_NAME)
+        logs = store_log.get_logs_by_user(interaction.user.id, media_type, (created_at, end), None)
+        goal_msgs = []
+        for log in logs:
+            goal_msg = helpers.update_goals(interaction.user.id, [Goal(interaction.user.id, goal_type, MediaType[media_type.upper()], 0, amount.value, name, span, created_at, end)], Log_constructor(interaction.user.id, log.media_type.value, log.amount, log.title, log.note, log.created_at), store, media_type, MULTIPLIERS, codes, codes_path)
+            goal_msgs.append(goal_msg)
+            
+        codes_path = _IMMERSION_CODES
+        try:
+            with open(codes_path, "r") as file:
+                codes = json.load(file)
+        except FileNotFoundError:
+            codes = {}
+        name = helpers.get_name_of_immersion(media_type, name, codes, _IMMERSION_CODES)
+        try:
+            updated_date = f'<t:{int(end.timestamp())}:R>'
+        except Exception:
+            updated_date = end
+        await interaction.response.send_message(ephemeral=True, content=f'''## Set {goal_type} goal as {span} goal\n- {amount.value} {helpers.media_type_format(media_type.upper())} of [{name[1]}]({name[2]}) ({updated_date})\n\nUse ``/goals`` to view your goals for <t:{int(time.mktime((interaction.created_at.replace(hour=0, minute=0, second=0, microsecond=0)).timetuple()))}:D>''', suppress_embeds=True)
+        if goal_msgs:
+            for goal_message in goal_msgs:
+                await interaction.channel.send(content=f'{goal_message[0][0]} congrats on finishing your goal of {goal_message[0][1]} {goal_message[0][2]} {goal_message[0][3]} {goal_message[0][4]}, keep the spirit!!! {goal_message[0][5]} {helpers.random_emoji()}')
 
     @set_goal_media.autocomplete('name')
     async def log_autocomplete(self, interaction: discord.Interaction, current: str,) -> List[app_commands.Choice[str]]:

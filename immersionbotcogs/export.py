@@ -3,13 +3,14 @@ from discord.ext import commands
 from typing import Optional
 from discord import app_commands
 from discord.app_commands import Choice
-from sql import Store
+from modals.sql import Store
 import csv
 import os
 import asyncio
-import helpers
+import json
+import modals.helpers as helpers
 from datetime import date as timedelta
-from constants import TIMEFRAMES, _DB_NAME
+from modals.constants import TIMEFRAMES, _DB_NAME, tmw_id, _IMMERSION_CODES
 
 class Export(commands.Cog):
 
@@ -18,17 +19,20 @@ class Export(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.myguild = self.bot.get_guild(617136488840429598)
+        self.myguild = self.bot.get_guild(tmw_id)
                 
     @app_commands.command(name='export', description=f'Export your immersion logs.')
     @app_commands.describe(timeframe='''DEFAULT=MONTH; Week, Month, Year, All, [year-month-day] or [year-month-day-year-month-day]''')
     @app_commands.choices(media_type = [Choice(name="Visual Novels", value="VN"), Choice(name="Manga", value="MANGA"), Choice(name="Anime", value="ANIME"), Choice(name="Book", value="BOOK"), Choice(name="Readtime", value="READTIME"), Choice(name="Listening", value="LISTENING"), Choice(name="Reading", value="READING")])
-    @app_commands.checks.has_role("QA Tester")
     async def export(self, interaction: discord.Interaction, timeframe: Optional[str], media_type: Optional[str]):
 
         channel = interaction.channel
         if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
-            return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
+            return await interaction.response.send_message(ephemeral=True, content='You can only export your logs in #immersion-log or DMs.')
+        
+        bool, msg = helpers.check_maintenance()
+        if bool:
+            return await interaction.response.send_message(content=f'In maintenance: {msg.maintenance_msg}', ephemeral=True)
 
         if not media_type:
             media_type = None
@@ -37,7 +41,10 @@ class Export(commands.Cog):
             #Month
             timeframe = "Monthly"
             beginn = interaction.created_at.replace(day=1, hour=0, minute=0)
-            end = (beginn.replace(day=28) + timedelta(days=4)) - timedelta(days=(beginn.replace(day=28) + timedelta(days=4)).day)
+            if beginn.month == 12:
+                end = beginn.replace(year=beginn.year + 1, month=1)
+            else:
+                end = beginn.replace(month=beginn.month + 1, day=1)
 
         elif timeframe.upper() == "WEEK":
             beginn = (interaction.created_at - timedelta(days=interaction.created_at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -82,13 +89,20 @@ class Export(commands.Cog):
 
         filename = interaction.user.name + f" logs{' (' + media_type + ')' if media_type else ''}"
 
+        codes_path = _IMMERSION_CODES
+        try:
+            with open(codes_path, "r") as file:
+                codes = json.load(file)
+        except FileNotFoundError:
+            codes = {}
+
         with open(f'{filename}.csv', 'w', newline='') as file:
             writer = csv.writer(file)
-            field = ["discord_user_id", "media_type", "amount", "note", "created_at"]
+            field = ["discord_user_id", "media_type", "amount", "title", "note", "created_at"]
             
             writer.writerow(field)
             for log in logs:
-                writer.writerow([f"{log.discord_user_id}", f"{log.media_type}", f"{log.amount}", f"{log.note}", f"{log.created_at}"])
+                writer.writerow([f"{log.discord_user_id}", f"{log.media_type}", f"{log.amount}", f"{helpers.get_name_of_immersion(log.media_type, log.title, codes, codes_path)[1]}",f"{log.note}", f"{log.created_at}"])
 
         await interaction.delete_original_response()
         await interaction.channel.send(file=discord.File(fr'{filename}.csv'))

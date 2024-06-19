@@ -3,9 +3,17 @@ from discord.ext import commands
 from discord import app_commands
 import asyncio
 import os
-import help_text
+import io
+import modals.help_text as help_text
 import datetime, time
-from constants import UNALLOWED_CHANNELS
+from modals.constants import tmw_id, _MULTIPLIERS, _JP_DB
+from discord.app_commands import Choice
+import pprint
+import json
+from modals.sql import Set_jp
+from modals.sql import Debug
+from modals import helpers
+
 start_time = time.time()
 
 class BotManager(commands.Cog):
@@ -15,10 +23,9 @@ class BotManager(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.myguild = self.bot.get_guild(617136488840429598)
+        self.myguild = self.bot.get_guild(tmw_id)
 
     @app_commands.command(name="uptime", description="How long the bot is working.")
-    @app_commands.checks.has_role("QA Tester")
     async def uptime(self, interaction: discord.Interaction):
 
         channel = interaction.channel
@@ -34,8 +41,8 @@ class BotManager(commands.Cog):
     @app_commands.checks.has_role("Moderator")
     async def reload_cog(self, interaction: discord.Interaction):
         channel = interaction.channel
-        if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
-            return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
+        # if channel.id != 1010323632750350437 and channel.id != 814947177608118273 and channel.type != discord.ChannelType.private:
+        #     return await interaction.response.send_message(content='You can only log in #immersion-log or DMs.',ephemeral=True)
 
         my_view = CogSelectView(timeout=1800)
         for cog_name in [extension for extension in self.bot.extensions]:
@@ -45,21 +52,36 @@ class BotManager(commands.Cog):
                                                 view=my_view,
                                                 ephemeral=True)
     
-    @app_commands.command(name="check_jp_channels", description="Checks allowed channels for jp points.")
-    @app_commands.checks.has_role("Moderator")
-    async def check_jp_channels(self, interaction: discord.Interaction):
-        my_view = CogSelectView(timeout=1800)
-        for channel_id in UNALLOWED_CHANNELS:
-            cog_button = ShowButton(self.bot, label=self.myguild.get_channel(channel_id).name)
-            my_view.add_item(cog_button)
-        await interaction.response.send_message(view=my_view, ephemeral=True)
+    # @app_commands.command(name="check_jp_channels", description="Checks allowed channels for jp points.")
+    # @app_commands.checks.has_role("Moderator")
+    # async def check_jp_channels(self, interaction: discord.Interaction):
+    #     my_view = CogSelectView(timeout=1800)
+    #     for channel_id in ALLOWED_CHANNELS:
+    #         print(channel_id)
+    #         print(type(channel_id))
+    #         print(interaction.guild.get_channel(channel_id).name)
+    #         cog_button = ShowButton(self.bot, label=interaction.guild.get_channel(channel_id).name)
+    #         my_view.add_item(cog_button)
+    #     await interaction.response.send_message(view=my_view, ephemeral=True)
         
     @app_commands.command(name="sync", description="Syncs slash commands to the guild.")
     @app_commands.checks.has_role("Moderator")
     async def sync(self, interaction: discord.Interaction):
         await self.bot.tree.sync()
-        await interaction.response.send_message(f'Synced commands to guild with id {617136488840429598}.')
-    
+        await interaction.response.send_message(f'Synced commands to guild with id {tmw_id}.')
+        
+    @app_commands.command(name="maintenance", description="Disables command usage for debugging.")
+    @app_commands.checks.has_role("Moderator")
+    async def maintenance(self, interaction: discord.Interaction, message: str):
+        debug = Debug("dbs/debug.db")
+        bool, msg = helpers.check_maintenance()
+        if bool:
+            debug.end_maintenance()
+            return await interaction.response.send_message(content="Ended maintenance.", ephemeral=True)
+        else:
+            debug.start_maintenance(interaction.user.id, message)
+            return await interaction.response.send_message(content=f"Started maintenance with the following info: {message}.", ephemeral=True)
+        
     @app_commands.command(name='load', description='Loads cogs.')
     @app_commands.checks.has_any_role("Moderator")
     async def load(self, interaction: discord.Interaction,):
@@ -77,6 +99,42 @@ class BotManager(commands.Cog):
         self.bot.tree.clear_commands(guild=interaction.guild)
         await interaction.response.send_message("Cleared global commands.")
 
+    @app_commands.command(name='output_dist', description='Shows total output in channels.')
+    @app_commands.checks.has_any_role("Moderator")
+    async def output_dist(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        store = Set_jp(_JP_DB)
+        outputs = store.all_output()
+        dict = {}
+        for output in outputs:
+            channel_id, amount = output
+            channel_name = interaction.guild.get_channel(channel_id).name
+            dict[channel_name] = amount
+    
+        await interaction.followup.send(content=dict, ephemeral=True)
+                
+
+    @app_commands.command(name='multiplier', description=f'Adjust points multipliers.')
+    @app_commands.choices(media_type = [Choice(name="Visual Novel", value="VN"), Choice(name="Manga", value="Manga"), Choice(name="Anime", value="Anime"), Choice(name="Book", value="Book"), Choice(name="Readtime", value="Readtime"), Choice(name="Listening", value="Listening"), Choice(name="Reading", value="Reading"), Choice(name="Output", value="Output")])
+    @app_commands.checks.has_any_role("Moderator")
+    async def multiplier(self, interaction: discord.Interaction, media_type: str, amount: float):
+        file_path = _MULTIPLIERS
+        try:
+            with open(file_path, "r") as file:
+                MULTIPLIERS = json.load(file)
+        except FileNotFoundError:
+            MULTIPLIERS = {}
+
+        # Adding a new entry to the dictionary
+        old_amount = MULTIPLIERS[media_type.upper()]
+        MULTIPLIERS[media_type.upper()] = amount
+
+        # Save the updated dictionary back to the file
+        with open(file_path, "w") as file:
+            json.dump(MULTIPLIERS, file)
+
+        await interaction.response.send_message(content=f'Changed multiplier for {media_type} from {old_amount} to {amount}.', ephemeral=True)
+
     @app_commands.command(name='help', description='Explains commands.')
     async def help(self, interaction: discord.Interaction):
         channel = interaction.channel
@@ -87,12 +145,16 @@ class BotManager(commands.Cog):
         for cog_name in [extension for extension in self.bot.extensions] + ["immersionbotcogs.BOT"]:
             if cog_name == "immersionbotcogs.cogs_manager":
                 continue
+            if cog_name == "immersionbotcogs.adjust":
+                continue
             if cog_name == "immersionbotcogs.set_goal_media":
                 continue
             if cog_name == "immersionbotcogs.set_goal_points":
                 cog_name = "immersionbotcogs.set_goal"
             if cog_name == "immersionbotcogs.goals_manager":
                 continue
+            if cog_name == "immersionbotcogs.japanese_tracker":
+                cog_name = "immersionbotcogs.output recognition"
             cog_button = ExplainButtons(self.bot, label=cog_name[17:])
             my_view.add_item(cog_button)
 
