@@ -6,3 +6,4 @@ goals.db
 prod.db
 japanese.db
 launch_bot.py
+*.egg-info
